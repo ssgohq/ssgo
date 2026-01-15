@@ -123,6 +123,11 @@ func (g *GenCommand) readModule() (string, error) {
 
 // printSuccess prints the success message
 func (g *GenCommand) printSuccess() {
+	tracingSuffix := ""
+	if g.opts.WithTrace {
+		tracingSuffix = " with tracing"
+	}
+
 	fmt.Println()
 	fmt.Println("✓ SQLC code generation complete!")
 	fmt.Println()
@@ -136,12 +141,7 @@ func (g *GenCommand) printSuccess() {
 	fmt.Println("    - *_repository.go (repository interfaces & implementations)")
 	fmt.Println("  internal/store/")
 	fmt.Println("    - store.go (store wrapper with transaction support)")
-	fmt.Println("    - db.go (pgxpool helper" + func() string {
-		if g.opts.WithTrace {
-			return " with tracing"
-		}
-		return ""
-	}() + ")")
+	fmt.Println("    - db.go (pgxpool helper" + tracingSuffix + ")")
 	fmt.Println("  internal/config/config.go (DBConfig struct)")
 	fmt.Println("  internal/svc/service_context.go (Store injected)")
 	fmt.Println("  cmd/main.go (updated to handle DB errors)")

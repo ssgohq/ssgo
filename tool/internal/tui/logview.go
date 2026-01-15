@@ -241,19 +241,19 @@ func (l *LogView) Update(msg tea.Msg) tea.Cmd {
 			l.viewport.GotoBottom()
 			l.autoScroll = true
 		case "up", "k":
-			l.viewport.LineUp(1)
+			l.viewport.ScrollUp(1)
 			l.autoScroll = false
 		case "down", "j":
-			l.viewport.LineDown(1)
+			l.viewport.ScrollDown(1)
 			// Re-enable auto-scroll if at bottom
 			if l.viewport.AtBottom() {
 				l.autoScroll = true
 			}
 		case "pgup", "ctrl+u":
-			l.viewport.HalfViewUp()
+			l.viewport.HalfPageUp()
 			l.autoScroll = false
 		case "pgdown", "ctrl+d":
-			l.viewport.HalfViewDown()
+			l.viewport.HalfPageDown()
 			if l.viewport.AtBottom() {
 				l.autoScroll = true
 			}

@@ -4,8 +4,7 @@ import (
 	"strings"
 
 	"github.com/ssgohq/ssgo/internal/util/naming"
-
-	"github.com/ssgohq/ssgo/tool/internal/spec/api"
+	spec "github.com/ssgohq/ssgo/tool/internal/spec/api"
 )
 
 // RPCClientTemplateData represents RPC client data for templates
@@ -425,24 +424,16 @@ func extractPathParam(path string) string {
 	return ""
 }
 
-// splitPath splits a path by /.
+// splitPath splits a path by / and filters empty parts.
 func splitPath(path string) []string {
-	var parts []string
-	var current string
-	for _, c := range path {
-		if c == '/' {
-			if current != "" {
-				parts = append(parts, current)
-				current = ""
-			}
-		} else {
-			current += string(c)
+	parts := strings.Split(path, "/")
+	result := make([]string, 0, len(parts))
+	for _, part := range parts {
+		if part != "" {
+			result = append(result, part)
 		}
 	}
-	if current != "" {
-		parts = append(parts, current)
-	}
-	return parts
+	return result
 }
 
 // logicPackage generates logic package name from group.

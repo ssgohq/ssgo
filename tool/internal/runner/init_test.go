@@ -12,22 +12,22 @@ func TestDiscoverServices(t *testing.T) {
 
 	// Create service1 with go.mod and main.go
 	svc1Dir := filepath.Join(tmpDir, "service1")
-	_ = os.MkdirAll(svc1Dir, 0755)
-	_ = os.WriteFile(filepath.Join(svc1Dir, "go.mod"), []byte("module github.com/test/service1\n\ngo 1.21\n"), 0644)
-	_ = os.WriteFile(filepath.Join(svc1Dir, "main.go"), []byte("package main\nfunc main() {}\n"), 0644)
+	_ = os.MkdirAll(svc1Dir, 0o755)
+	_ = os.WriteFile(filepath.Join(svc1Dir, "go.mod"), []byte("module github.com/test/service1\n\ngo 1.21\n"), 0o644)
+	_ = os.WriteFile(filepath.Join(svc1Dir, "main.go"), []byte("package main\nfunc main() {}\n"), 0o644)
 
 	// Create service2 with cmd/server structure
 	svc2Dir := filepath.Join(tmpDir, "service2")
 	svc2CmdDir := filepath.Join(svc2Dir, "cmd", "server")
-	_ = os.MkdirAll(svc2CmdDir, 0755)
-	_ = os.WriteFile(filepath.Join(svc2Dir, "go.mod"), []byte("module github.com/test/service2\n\ngo 1.21\n"), 0644)
-	_ = os.WriteFile(filepath.Join(svc2CmdDir, "main.go"), []byte("package main\nfunc main() {}\n"), 0644)
+	_ = os.MkdirAll(svc2CmdDir, 0o755)
+	_ = os.WriteFile(filepath.Join(svc2Dir, "go.mod"), []byte("module github.com/test/service2\n\ngo 1.21\n"), 0o644)
+	_ = os.WriteFile(filepath.Join(svc2CmdDir, "main.go"), []byte("package main\nfunc main() {}\n"), 0o644)
 
 	// Create library (no main.go) - should be skipped
 	libDir := filepath.Join(tmpDir, "lib")
-	_ = os.MkdirAll(libDir, 0755)
-	_ = os.WriteFile(filepath.Join(libDir, "go.mod"), []byte("module github.com/test/lib\n\ngo 1.21\n"), 0644)
-	_ = os.WriteFile(filepath.Join(libDir, "lib.go"), []byte("package lib\n"), 0644)
+	_ = os.MkdirAll(libDir, 0o755)
+	_ = os.WriteFile(filepath.Join(libDir, "go.mod"), []byte("module github.com/test/lib\n\ngo 1.21\n"), 0o644)
+	_ = os.WriteFile(filepath.Join(libDir, "lib.go"), []byte("package lib\n"), 0o644)
 
 	// Run discovery
 	services, err := discoverServices(tmpDir)
@@ -64,15 +64,15 @@ func TestDiscoverServicesSkipsVendor(t *testing.T) {
 
 	// Create main service in a subdirectory (not root)
 	svcDir := filepath.Join(tmpDir, "myservice")
-	_ = os.MkdirAll(svcDir, 0755)
-	_ = os.WriteFile(filepath.Join(svcDir, "go.mod"), []byte("module github.com/test/myservice\n\ngo 1.21\n"), 0644)
-	_ = os.WriteFile(filepath.Join(svcDir, "main.go"), []byte("package main\nfunc main() {}\n"), 0644)
+	_ = os.MkdirAll(svcDir, 0o755)
+	_ = os.WriteFile(filepath.Join(svcDir, "go.mod"), []byte("module github.com/test/myservice\n\ngo 1.21\n"), 0o644)
+	_ = os.WriteFile(filepath.Join(svcDir, "main.go"), []byte("package main\nfunc main() {}\n"), 0o644)
 
 	// Create vendor directory with go.mod (should be skipped)
 	vendorDir := filepath.Join(tmpDir, "vendor", "some-dep")
-	_ = os.MkdirAll(vendorDir, 0755)
-	_ = os.WriteFile(filepath.Join(vendorDir, "go.mod"), []byte("module github.com/some/dep\n"), 0644)
-	_ = os.WriteFile(filepath.Join(vendorDir, "main.go"), []byte("package main\nfunc main() {}\n"), 0644)
+	_ = os.MkdirAll(vendorDir, 0o755)
+	_ = os.WriteFile(filepath.Join(vendorDir, "go.mod"), []byte("module github.com/some/dep\n"), 0o644)
+	_ = os.WriteFile(filepath.Join(vendorDir, "main.go"), []byte("package main\nfunc main() {}\n"), 0o644)
 
 	services, err := discoverServices(tmpDir)
 	if err != nil {
@@ -100,7 +100,7 @@ func TestHasMainGo(t *testing.T) {
 		{
 			name: "main.go at root",
 			setup: func(dir string) {
-				_ = os.WriteFile(filepath.Join(dir, "main.go"), []byte("package main"), 0644)
+				_ = os.WriteFile(filepath.Join(dir, "main.go"), []byte("package main"), 0o644)
 			},
 			expected: true,
 		},
@@ -108,8 +108,8 @@ func TestHasMainGo(t *testing.T) {
 			name: "cmd/main.go",
 			setup: func(dir string) {
 				cmdDir := filepath.Join(dir, "cmd")
-				_ = os.MkdirAll(cmdDir, 0755)
-				_ = os.WriteFile(filepath.Join(cmdDir, "main.go"), []byte("package main"), 0644)
+				_ = os.MkdirAll(cmdDir, 0o755)
+				_ = os.WriteFile(filepath.Join(cmdDir, "main.go"), []byte("package main"), 0o644)
 			},
 			expected: true,
 		},
@@ -117,15 +117,15 @@ func TestHasMainGo(t *testing.T) {
 			name: "cmd/server/main.go",
 			setup: func(dir string) {
 				serverDir := filepath.Join(dir, "cmd", "server")
-				_ = os.MkdirAll(serverDir, 0755)
-				_ = os.WriteFile(filepath.Join(serverDir, "main.go"), []byte("package main"), 0644)
+				_ = os.MkdirAll(serverDir, 0o755)
+				_ = os.WriteFile(filepath.Join(serverDir, "main.go"), []byte("package main"), 0o644)
 			},
 			expected: true,
 		},
 		{
 			name: "no main.go (library)",
 			setup: func(dir string) {
-				_ = os.WriteFile(filepath.Join(dir, "lib.go"), []byte("package lib"), 0644)
+				_ = os.WriteFile(filepath.Join(dir, "lib.go"), []byte("package lib"), 0o644)
 			},
 			expected: false,
 		},
@@ -153,7 +153,7 @@ func TestDetectRunCommand(t *testing.T) {
 		{
 			name: "main.go at root",
 			setup: func(dir string) {
-				_ = os.WriteFile(filepath.Join(dir, "main.go"), []byte("package main"), 0644)
+				_ = os.WriteFile(filepath.Join(dir, "main.go"), []byte("package main"), 0o644)
 			},
 			expected: "go run .",
 		},
@@ -161,8 +161,8 @@ func TestDetectRunCommand(t *testing.T) {
 			name: "cmd/server directory",
 			setup: func(dir string) {
 				serverDir := filepath.Join(dir, "cmd", "server")
-				_ = os.MkdirAll(serverDir, 0755)
-				_ = os.WriteFile(filepath.Join(serverDir, "main.go"), []byte("package main"), 0644)
+				_ = os.MkdirAll(serverDir, 0o755)
+				_ = os.WriteFile(filepath.Join(serverDir, "main.go"), []byte("package main"), 0o644)
 			},
 			expected: "go run ./cmd/server",
 		},
@@ -170,8 +170,8 @@ func TestDetectRunCommand(t *testing.T) {
 			name: "cmd/main.go",
 			setup: func(dir string) {
 				cmdDir := filepath.Join(dir, "cmd")
-				_ = os.MkdirAll(cmdDir, 0755)
-				_ = os.WriteFile(filepath.Join(cmdDir, "main.go"), []byte("package main"), 0644)
+				_ = os.MkdirAll(cmdDir, 0o755)
+				_ = os.WriteFile(filepath.Join(cmdDir, "main.go"), []byte("package main"), 0o644)
 			},
 			expected: "go run ./cmd",
 		},
@@ -233,7 +233,7 @@ version: "1.0"
 plugins:
   - name: some-plugin
 `
-	_ = os.WriteFile(configPath, []byte(initial), 0644)
+	_ = os.WriteFile(configPath, []byte(initial), 0o644)
 
 	// Update with run config
 	runConfig := map[string]interface{}{

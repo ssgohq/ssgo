@@ -759,44 +759,28 @@ func (p *Parser) parseDoc() (*DocExpr, error) {
 	return doc, nil
 }
 
+// httpMethodMap maps token types to HTTP method strings
+var httpMethodMap = map[TokenType]string{
+	TokenGet:     "GET",
+	TokenPost:    "POST",
+	TokenPut:     "PUT",
+	TokenDelete:  "DELETE",
+	TokenPatch:   "PATCH",
+	TokenHead:    "HEAD",
+	TokenOptions: "OPTIONS",
+	TokenConnect: "CONNECT",
+	TokenTrace:   "TRACE",
+	TokenAny:     "ANY",
+}
+
 // parseHTTPMethod parses HTTP method keyword
 func (p *Parser) parseHTTPMethod() (string, error) {
 	tok := p.current()
-
-	switch tok.Type {
-	case TokenGet:
+	if method, ok := httpMethodMap[tok.Type]; ok {
 		p.advance()
-		return "GET", nil
-	case TokenPost:
-		p.advance()
-		return "POST", nil
-	case TokenPut:
-		p.advance()
-		return "PUT", nil
-	case TokenDelete:
-		p.advance()
-		return "DELETE", nil
-	case TokenPatch:
-		p.advance()
-		return "PATCH", nil
-	case TokenHead:
-		p.advance()
-		return "HEAD", nil
-	case TokenOptions:
-		p.advance()
-		return "OPTIONS", nil
-	case TokenConnect:
-		p.advance()
-		return "CONNECT", nil
-	case TokenTrace:
-		p.advance()
-		return "TRACE", nil
-	case TokenAny:
-		p.advance()
-		return "ANY", nil
-	default:
-		return "", p.errorf("expected HTTP method, got %s", tok)
+		return method, nil
 	}
+	return "", p.errorf("expected HTTP method, got %s", tok)
 }
 
 // parsePath parses URL path

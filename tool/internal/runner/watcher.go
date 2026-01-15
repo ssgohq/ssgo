@@ -10,6 +10,7 @@ import (
 
 	"github.com/bmatcuk/doublestar/v4"
 	"github.com/fsnotify/fsnotify"
+
 	"github.com/ssgohq/ssgo/internal/util/log"
 )
 
@@ -48,7 +49,13 @@ type Watcher struct {
 }
 
 // NewWatcher creates a new file watcher.
-func NewWatcher(services []ServiceConfig, workDir string, buildDelay time.Duration, logger *log.Logger, events chan<- FileChangeEvent) (*Watcher, error) {
+func NewWatcher(
+	services []ServiceConfig,
+	workDir string,
+	buildDelay time.Duration,
+	logger *log.Logger,
+	events chan<- FileChangeEvent,
+) (*Watcher, error) {
 	fsWatcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		return nil, err

@@ -7,10 +7,10 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/ssgohq/ssgo/internal/util/naming"
 	"github.com/ssgohq/ssgo/tool/internal/gen"
 	"github.com/ssgohq/ssgo/tool/internal/generator/templates"
 	spec "github.com/ssgohq/ssgo/tool/internal/spec/api"
-	"github.com/ssgohq/ssgo/internal/util/naming"
 )
 
 // Options represents basic generator options
@@ -159,7 +159,6 @@ func (g *APIGenerator) newRunner() *gen.Runner {
 		"CleanTypeName":   naming.CleanTypeName,
 		"lower":           strings.ToLower,
 		"upper":           strings.ToUpper,
-		"title":           strings.Title,
 	}
 
 	return gen.NewRunner(gen.RunnerConfig{

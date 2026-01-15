@@ -9,8 +9,8 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/ssgohq/ssgo/tool/internal/generator/templates"
 	"github.com/ssgohq/ssgo/internal/util/naming"
+	"github.com/ssgohq/ssgo/tool/internal/generator/templates"
 )
 
 // ScaffoldOptions represents options for Scaffold

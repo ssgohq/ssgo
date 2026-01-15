@@ -62,7 +62,13 @@ type ProcessEvent struct {
 }
 
 // NewProcess creates a new Process instance.
-func NewProcess(cfg ServiceConfig, workDir string, killDelay time.Duration, logger *log.ServiceLogger, events chan<- ProcessEvent) *Process {
+func NewProcess(
+	cfg ServiceConfig,
+	workDir string,
+	killDelay time.Duration,
+	logger *log.ServiceLogger,
+	events chan<- ProcessEvent,
+) *Process {
 	return &Process{
 		config:    cfg,
 		workDir:   workDir,
@@ -90,7 +96,7 @@ func (p *Process) Name() string {
 }
 
 // log logs a message only in non-TUI mode.
-func (p *Process) log(level string, format string, args ...interface{}) {
+func (p *Process) log(level, format string, args ...interface{}) {
 	if p.tuiMode {
 		return
 	}

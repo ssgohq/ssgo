@@ -70,73 +70,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
-		// Handle global keys first
-		if !m.searchBar.IsFocused() {
-			switch msg.String() {
-			case "q", "ctrl+c":
-				m.quitting = true
-				return m, tea.Quit
-
-			case "/":
-				cmds = append(cmds, m.searchBar.ClearAndFocus())
-				return m, tea.Batch(cmds...)
-
-			case "tab":
-				m.tabBar.Next()
-				m.updateServiceFilter()
-				return m, nil
-
-			case "shift+tab":
-				m.tabBar.Prev()
-				m.updateServiceFilter()
-				return m, nil
-
-			case "1", "2", "3", "4", "5", "6", "7", "8", "9":
-				idx := int(msg.String()[0] - '1')
-				if idx < m.tabBar.Count() {
-					m.tabBar.SetActive(idx)
-					m.updateServiceFilter()
-				}
-				return m, nil
-
-			case "a":
-				m.logView.ToggleAutoScroll()
-				return m, nil
-
-			case "c":
-				m.logView.Clear()
-				return m, nil
-
-			case "r":
-				// Restart current service
-				if name := m.tabBar.ActiveName(); name != "" && name != "All" {
-					go func() {
-						_ = m.manager.RestartService(context.Background(), name, true)
-					}()
-				}
-				return m, nil
-			}
-		}
-
-		// Handle search bar input
-		if m.searchBar.IsFocused() {
-			cmd, handled := m.searchBar.Update(msg)
-			if handled {
-				m.logView.SetSearchTerm(m.searchBar.Value())
-			}
-			if cmd != nil {
-				cmds = append(cmds, cmd)
-			}
-			// Update search in real-time
-			m.logView.SetSearchTerm(m.searchBar.Value())
-			return m, tea.Batch(cmds...)
-		}
-
-		// Forward to log view
-		cmd := m.logView.Update(msg)
-		if cmd != nil {
-			cmds = append(cmds, cmd)
-		}
+		return m.handleKeyMsg(msg)
 
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
@@ -145,33 +79,15 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.ready = true
 
 	case TickMsg:
-		// Update service states
 		for name, state := range m.manager.ServiceStates() {
-			m.tabBar.SetState(name, string(state))
+			m.tabBar.SetState(name, state)
 		}
 		cmds = append(cmds, m.tick())
 
 	case ProcessEventMsg:
-		// Handle process events
-		m.tabBar.SetState(msg.Service, string(msg.State))
-
-		// Add log entry for state changes
-		level := LogLevelInfo
-		if msg.Error != nil {
-			level = LogLevelError
-		} else if msg.State == StateRunning {
-			level = LogLevelSuccess
-		}
-
-		m.logView.AddLog(LogEntry{
-			Time:    time.Now(),
-			Service: msg.Service,
-			Level:   level,
-			Message: msg.Message,
-		})
+		m.handleProcessEvent(msg)
 
 	case LogMsg:
-		// Handle log messages from services
 		m.logView.AddLog(LogEntry{
 			Time:    msg.Time,
 			Service: msg.Service,
@@ -185,6 +101,86 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	return m, tea.Batch(cmds...)
+}
+
+// handleKeyMsg handles keyboard input messages.
+func (m *Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	// Handle global keys when search bar is not focused
+	if !m.searchBar.IsFocused() {
+		if model, cmd, handled := m.handleGlobalKey(msg); handled {
+			return model, cmd
+		}
+	}
+
+	// Handle search bar input
+	if m.searchBar.IsFocused() {
+		cmd, _ := m.searchBar.Update(msg)
+		m.logView.SetSearchTerm(m.searchBar.Value())
+		return m, cmd
+	}
+
+	// Forward to log view
+	cmd := m.logView.Update(msg)
+	return m, cmd
+}
+
+// handleGlobalKey handles global keyboard shortcuts.
+func (m *Model) handleGlobalKey(msg tea.KeyMsg) (tea.Model, tea.Cmd, bool) {
+	switch msg.String() {
+	case "q", "ctrl+c":
+		m.quitting = true
+		return m, tea.Quit, true
+	case "/":
+		return m, m.searchBar.ClearAndFocus(), true
+	case "tab":
+		m.tabBar.Next()
+		m.updateServiceFilter()
+		return m, nil, true
+	case "shift+tab":
+		m.tabBar.Prev()
+		m.updateServiceFilter()
+		return m, nil, true
+	case "1", "2", "3", "4", "5", "6", "7", "8", "9":
+		idx := int(msg.String()[0] - '1')
+		if idx < m.tabBar.Count() {
+			m.tabBar.SetActive(idx)
+			m.updateServiceFilter()
+		}
+		return m, nil, true
+	case "a":
+		m.logView.ToggleAutoScroll()
+		return m, nil, true
+	case "c":
+		m.logView.Clear()
+		return m, nil, true
+	case "r":
+		if name := m.tabBar.ActiveName(); name != "" && name != "All" {
+			go func() {
+				_ = m.manager.RestartService(context.Background(), name, true)
+			}()
+		}
+		return m, nil, true
+	}
+	return m, nil, false
+}
+
+// handleProcessEvent handles process state change events.
+func (m *Model) handleProcessEvent(msg ProcessEventMsg) {
+	m.tabBar.SetState(msg.Service, string(msg.State))
+
+	level := LogLevelInfo
+	if msg.Error != nil {
+		level = LogLevelError
+	} else if msg.State == StateRunning {
+		level = LogLevelSuccess
+	}
+
+	m.logView.AddLog(LogEntry{
+		Time:    time.Now(),
+		Service: msg.Service,
+		Level:   level,
+		Message: msg.Message,
+	})
 }
 
 // updateLayout updates component sizes based on window size.

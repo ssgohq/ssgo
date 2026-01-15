@@ -6,8 +6,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/ssgohq/ssgo/internal/util/gomod"
 	"gopkg.in/yaml.v3"
+
+	"github.com/ssgohq/ssgo/internal/util/gomod"
 )
 
 // ServiceDiscovery holds discovered service information.
@@ -121,7 +122,7 @@ func updateRunSection(configPath string, runConfig map[string]interface{}) error
 		content = strings.TrimSuffix(content, "\n") + "\n\n" + string(runYAML)
 	}
 
-	if err := os.WriteFile(configPath, []byte(content), 0644); err != nil {
+	if err := os.WriteFile(configPath, []byte(content), 0o644); err != nil {
 		return fmt.Errorf("failed to write .ss.yaml: %w", err)
 	}
 
@@ -139,7 +140,7 @@ func createNewConfig(configPath string, runConfig map[string]interface{}) error 
 		return fmt.Errorf("failed to marshal config: %w", err)
 	}
 
-	if err := os.WriteFile(configPath, data, 0644); err != nil {
+	if err := os.WriteFile(configPath, data, 0o644); err != nil {
 		return fmt.Errorf("failed to write .ss.yaml: %w", err)
 	}
 

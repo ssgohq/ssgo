@@ -3,7 +3,7 @@ package hertz
 import (
 	"strings"
 
-	"github.com/ssgohq/ssgo/tool/internal/spec/api"
+	spec "github.com/ssgohq/ssgo/tool/internal/spec/api"
 )
 
 // TypeData represents template data for types.go

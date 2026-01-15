@@ -11,8 +11,8 @@ import (
 
 	"gopkg.in/yaml.v3"
 
-	"github.com/ssgohq/ssgo/internal/ast/api"
-	"github.com/ssgohq/ssgo/tool/internal/spec/api"
+	ast "github.com/ssgohq/ssgo/internal/ast/api"
+	spec "github.com/ssgohq/ssgo/tool/internal/spec/api"
 )
 
 // Generator generates OpenAPI specs from parsed API specs

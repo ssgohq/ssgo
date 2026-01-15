@@ -39,7 +39,12 @@ type Supervisor struct {
 }
 
 // NewSupervisor creates a new Supervisor instance.
-func NewSupervisor(config *RunnerConfig, workDir string, logger *log.Logger, noBuild, noWatch, tuiMode bool) *Supervisor {
+func NewSupervisor(
+	config *RunnerConfig,
+	workDir string,
+	logger *log.Logger,
+	noBuild, noWatch, tuiMode bool,
+) *Supervisor {
 	return &Supervisor{
 		config:        config,
 		workDir:       workDir,

@@ -267,7 +267,6 @@ func TestProcessNoBuildCommand(t *testing.T) {
 
 	ctx := context.Background()
 	err := p.Build(ctx)
-
 	// Should succeed (no-op)
 	if err != nil {
 		t.Errorf("Build with no command should succeed, got: %v", err)

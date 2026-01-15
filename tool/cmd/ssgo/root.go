@@ -257,90 +257,71 @@ func loadRunnerConfig(workDir string) (*runner.RunnerConfig, error) {
 	}
 
 	// Parse runner config
-	config := &runner.RunnerConfig{}
-
-	// Parse build_delay
-	if bd, ok := runSection["build_delay"].(string); ok {
-		if d, err := time.ParseDuration(bd); err == nil {
-			config.BuildDelay = d
-		}
-	}
-	if config.BuildDelay == 0 {
-		config.BuildDelay = 500 * time.Millisecond
-	}
-
-	// Parse kill_delay
-	if kd, ok := runSection["kill_delay"].(string); ok {
-		if d, err := time.ParseDuration(kd); err == nil {
-			config.KillDelay = d
-		}
-	}
-	if config.KillDelay == 0 {
-		config.KillDelay = 5 * time.Second
+	config := &runner.RunnerConfig{
+		BuildDelay: parseDuration(runSection, "build_delay", 500*time.Millisecond),
+		KillDelay:  parseDuration(runSection, "kill_delay", 5*time.Second),
 	}
 
 	// Parse services
 	if services, ok := runSection["services"].([]interface{}); ok {
 		for _, svc := range services {
 			if svcMap, ok := svc.(map[string]interface{}); ok {
-				svcConfig := runner.ServiceConfig{}
-
-				if name, ok := svcMap["name"].(string); ok {
-					svcConfig.Name = name
-				}
-				if dir, ok := svcMap["dir"].(string); ok {
-					svcConfig.Dir = dir
-				}
-				if cmd, ok := svcMap["cmd"].(string); ok {
-					svcConfig.Cmd = cmd
-				}
-				if run, ok := svcMap["run"].(string); ok {
-					svcConfig.Run = run
-				}
-				if color, ok := svcMap["color"].(string); ok {
-					svcConfig.Color = color
-				}
-
-				// Parse env
-				if env, ok := svcMap["env"].([]interface{}); ok {
-					for _, e := range env {
-						if es, ok := e.(string); ok {
-							svcConfig.Env = append(svcConfig.Env, es)
-						}
-					}
-				}
-
-				// Parse depends_on
-				if deps, ok := svcMap["depends_on"].([]interface{}); ok {
-					for _, d := range deps {
-						if ds, ok := d.(string); ok {
-							svcConfig.DependsOn = append(svcConfig.DependsOn, ds)
-						}
-					}
-				}
-
-				// Parse watch config
-				if watch, ok := svcMap["watch"].(map[string]interface{}); ok {
-					if include, ok := watch["include"].([]interface{}); ok {
-						for _, i := range include {
-							if is, ok := i.(string); ok {
-								svcConfig.Watch.Include = append(svcConfig.Watch.Include, is)
-							}
-						}
-					}
-					if exclude, ok := watch["exclude"].([]interface{}); ok {
-						for _, e := range exclude {
-							if es, ok := e.(string); ok {
-								svcConfig.Watch.Exclude = append(svcConfig.Watch.Exclude, es)
-							}
-						}
-					}
-				}
-
-				config.Services = append(config.Services, svcConfig)
+				config.Services = append(config.Services, parseServiceConfig(svcMap))
 			}
 		}
 	}
 
 	return config, nil
+}
+
+// parseDuration parses a duration string from a map with a default value.
+func parseDuration(m map[string]interface{}, key string, defaultVal time.Duration) time.Duration {
+	if s, ok := m[key].(string); ok {
+		if d, err := time.ParseDuration(s); err == nil {
+			return d
+		}
+	}
+	return defaultVal
+}
+
+// parseStringSlice converts []interface{} to []string.
+func parseStringSlice(v interface{}) []string {
+	slice, ok := v.([]interface{})
+	if !ok {
+		return nil
+	}
+	result := make([]string, 0, len(slice))
+	for _, item := range slice {
+		if s, ok := item.(string); ok {
+			result = append(result, s)
+		}
+	}
+	return result
+}
+
+// parseServiceConfig parses a service configuration from a map.
+func parseServiceConfig(m map[string]interface{}) runner.ServiceConfig {
+	svc := runner.ServiceConfig{}
+	if name, ok := m["name"].(string); ok {
+		svc.Name = name
+	}
+	if dir, ok := m["dir"].(string); ok {
+		svc.Dir = dir
+	}
+	if cmd, ok := m["cmd"].(string); ok {
+		svc.Cmd = cmd
+	}
+	if run, ok := m["run"].(string); ok {
+		svc.Run = run
+	}
+	if color, ok := m["color"].(string); ok {
+		svc.Color = color
+	}
+	svc.Env = parseStringSlice(m["env"])
+	svc.DependsOn = parseStringSlice(m["depends_on"])
+	if watch, ok := m["watch"].(map[string]interface{}); ok {
+		svc.Watch.Include = parseStringSlice(watch["include"])
+		svc.Watch.Exclude = parseStringSlice(watch["exclude"])
+	}
+	return svc
 }

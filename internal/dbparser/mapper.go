@@ -74,27 +74,23 @@ func ApplyNullable(goType string, col *Column, opts MapperOptions) string {
 	return "*" + goType
 }
 
+// nullTypeMap maps Go types to their sql.Null* equivalents
+var nullTypeMap = map[string]string{
+	"int16":     "sql.NullInt16",
+	"int32":     "sql.NullInt32",
+	"int64":     "sql.NullInt64",
+	"float32":   "sql.NullFloat64",
+	"float64":   "sql.NullFloat64",
+	"bool":      "sql.NullBool",
+	"string":    "sql.NullString",
+	"time.Time": "sql.NullTime",
+}
+
 func mapToNullType(goType string) string {
-	switch goType {
-	case "int16":
-		return "sql.NullInt16"
-	case "int32":
-		return "sql.NullInt32"
-	case "int64":
-		return "sql.NullInt64"
-	case "float32":
-		return "sql.NullFloat64"
-	case "float64":
-		return "sql.NullFloat64"
-	case "bool":
-		return "sql.NullBool"
-	case "string":
-		return "sql.NullString"
-	case "time.Time":
-		return "sql.NullTime"
-	default:
-		return "*" + goType
+	if nullType, ok := nullTypeMap[goType]; ok {
+		return nullType
 	}
+	return "*" + goType
 }
 
 // TypeInfo holds Go type information

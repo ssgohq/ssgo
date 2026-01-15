@@ -7,6 +7,7 @@ import (
 	"syscall"
 
 	tea "github.com/charmbracelet/bubbletea"
+
 	"github.com/ssgohq/ssgo/internal/util/log"
 	"github.com/ssgohq/ssgo/tool/internal/tui"
 )
