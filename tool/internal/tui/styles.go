@@ -114,6 +114,11 @@ var (
 	// Divider style
 	DividerStyle = lipgloss.NewStyle().
 			Foreground(ColorMuted)
+
+	// Selected line style
+	SelectedLineStyle = lipgloss.NewStyle().
+				Background(lipgloss.Color("237")).
+				Foreground(ColorWhite)
 )
 
 // GetServiceColor returns a color for a service based on its index.
