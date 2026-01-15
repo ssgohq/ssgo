@@ -1,0 +1,429 @@
+package gorm
+
+import (
+	"bytes"
+	"fmt"
+	"go/format"
+	"os"
+	"path/filepath"
+	"sort"
+	"strings"
+	"text/template"
+
+	"github.com/ssgohq/ssgo/internal/dbparser"
+	"github.com/ssgohq/ssgo/tool/internal/generator/naming"
+)
+
+// repoData holds data for repository template rendering
+type repoData struct {
+	PackageName  string
+	Imports      []string
+	ModelImport  string
+	ModelPackage string
+	StructName   string
+	ModelName    string
+	TableName    string
+	PrimaryKey   *repoPrimaryKey
+	WithTrace    bool
+	SoftDelete   bool
+}
+
+type repoPrimaryKey struct {
+	Fields    []repoPKField
+	Composite bool
+}
+
+type repoPKField struct {
+	Name   string
+	Type   string
+	Column string
+}
+
+// generateBaseRepository generates the base repository interface
+func (g *Generator) generateBaseRepository(dir string) error {
+	data := &baseRepoData{
+		PackageName: g.opts.RepoPackage,
+		WithTrace:   g.opts.WithTrace,
+	}
+
+	content, err := g.renderBaseRepoTemplate(data)
+	if err != nil {
+		return err
+	}
+
+	filename := filepath.Join(dir, "base_gen.go")
+	g.logVerbose("  Generating base repository: %s\n", filename)
+
+	return os.WriteFile(filename, content, 0o644)
+}
+
+type baseRepoData struct {
+	PackageName string
+	WithTrace   bool
+}
+
+// generateRepository generates a single repository file
+func (g *Generator) generateRepository(dir string, table *dbparser.Table) error {
+	data := g.buildRepoData(table)
+
+	content, err := g.renderRepoTemplate(data)
+	if err != nil {
+		return err
+	}
+
+	filename := filepath.Join(dir, naming.ToSnakeCase(table.Name)+"_repository_gen.go")
+	g.logVerbose("  Generating repository: %s\n", filename)
+
+	return os.WriteFile(filename, content, 0o644)
+}
+
+// buildRepoData converts table schema to repository template data
+func (g *Generator) buildRepoData(table *dbparser.Table) *repoData {
+	imports := map[string]bool{
+		"context":      true,
+		"gorm.io/gorm": true,
+	}
+
+	// Check if table has soft delete
+	hasSoftDelete := false
+	for _, col := range table.Columns {
+		if col.Name == "deleted_at" && g.opts.SoftDelete {
+			hasSoftDelete = true
+			break
+		}
+	}
+
+	// Build primary key info
+	var pk *repoPrimaryKey
+	hasNonCompositePK := false
+	if table.PrimaryKey != nil {
+		var fields []repoPKField
+		for _, colName := range table.PrimaryKey.Columns {
+			col := table.GetColumn(colName)
+			if col != nil {
+				// Add import for PK type
+				if strings.Contains(col.GoType, "uuid.") {
+					imports["github.com/google/uuid"] = true
+				}
+
+				fields = append(fields, repoPKField{
+					Name:   naming.ToPascalCase(colName),
+					Type:   col.GoType,
+					Column: colName,
+				})
+			}
+		}
+		pk = &repoPrimaryKey{
+			Fields:    fields,
+			Composite: len(fields) > 1,
+		}
+		hasNonCompositePK = len(fields) == 1
+	}
+
+	// Only add tracing imports if we have methods that use them
+	if g.opts.WithTrace && hasNonCompositePK {
+		imports["fmt"] = true
+		imports["go.opentelemetry.io/otel"] = true
+		imports["go.opentelemetry.io/otel/attribute"] = true
+	} else if g.opts.WithTrace {
+		imports["go.opentelemetry.io/otel"] = true
+	}
+
+	// Sort imports
+	var importList []string
+	for imp := range imports {
+		importList = append(importList, imp)
+	}
+	sort.Strings(importList)
+
+	modelName := naming.ToPascalCase(naming.Singularize(table.Name))
+
+	// Calculate model import path
+	modelImport := g.opts.ModuleName
+	if modelImport != "" {
+		modelImport = modelImport + "/" + g.opts.ModelPackage
+	} else {
+		modelImport = g.opts.ModelPackage
+	}
+
+	return &repoData{
+		PackageName:  g.opts.RepoPackage,
+		Imports:      importList,
+		ModelImport:  modelImport,
+		ModelPackage: g.opts.ModelPackage,
+		StructName:   modelName + "Repository",
+		ModelName:    modelName,
+		TableName:    table.Name,
+		PrimaryKey:   pk,
+		WithTrace:    g.opts.WithTrace,
+		SoftDelete:   hasSoftDelete,
+	}
+}
+
+func (g *Generator) renderBaseRepoTemplate(data *baseRepoData) ([]byte, error) {
+	tmpl, err := template.New("base_repo").Parse(baseRepoTemplate)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse template: %w", err)
+	}
+
+	var buf bytes.Buffer
+	if err := tmpl.Execute(&buf, data); err != nil {
+		return nil, fmt.Errorf("failed to execute template: %w", err)
+	}
+
+	formatted, err := format.Source(buf.Bytes())
+	if err != nil {
+		return buf.Bytes(), nil
+	}
+
+	return formatted, nil
+}
+
+func (g *Generator) renderRepoTemplate(data *repoData) ([]byte, error) {
+	funcMap := template.FuncMap{
+		"toLower": strings.ToLower,
+	}
+
+	tmpl, err := template.New("repo").Funcs(funcMap).Parse(repoTemplate)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse template: %w", err)
+	}
+
+	var buf bytes.Buffer
+	if err := tmpl.Execute(&buf, data); err != nil {
+		return nil, fmt.Errorf("failed to execute template: %w", err)
+	}
+
+	formatted, err := format.Source(buf.Bytes())
+	if err != nil {
+		return buf.Bytes(), nil
+	}
+
+	return formatted, nil
+}
+
+const baseRepoTemplate = `// Code generated by ss-plugin-db. DO NOT EDIT.
+// Source: ss db gorm gen
+
+package {{.PackageName}}
+
+import (
+	"context"
+
+	"gorm.io/gorm"
+)
+
+// DB is the database interface used by repositories
+type DB interface {
+	WithContext(ctx context.Context) *gorm.DB
+	Create(value interface{}) *gorm.DB
+	Save(value interface{}) *gorm.DB
+	Delete(value interface{}, conds ...interface{}) *gorm.DB
+	First(dest interface{}, conds ...interface{}) *gorm.DB
+	Find(dest interface{}, conds ...interface{}) *gorm.DB
+	Model(value interface{}) *gorm.DB
+	Where(query interface{}, args ...interface{}) *gorm.DB
+	Preload(query string, args ...interface{}) *gorm.DB
+	Joins(query string, args ...interface{}) *gorm.DB
+	Count(count *int64) *gorm.DB
+	Offset(offset int) *gorm.DB
+	Limit(limit int) *gorm.DB
+	Order(value interface{}) *gorm.DB
+	Select(query interface{}, args ...interface{}) *gorm.DB
+	Omit(columns ...string) *gorm.DB
+	Updates(values interface{}) *gorm.DB
+	Unscoped() *gorm.DB
+}
+
+// BaseRepository provides common repository functionality
+type BaseRepository[T any] struct {
+	db *gorm.DB
+}
+
+// NewBaseRepository creates a new base repository
+func NewBaseRepository[T any](db *gorm.DB) *BaseRepository[T] {
+	return &BaseRepository[T]{db: db}
+}
+
+// DB returns the underlying database connection
+func (r *BaseRepository[T]) DB() *gorm.DB {
+	return r.db
+}
+
+// WithContext returns a new DB with context
+func (r *BaseRepository[T]) WithContext(ctx context.Context) *gorm.DB {
+	return r.db.WithContext(ctx)
+}
+
+// Create inserts a single record
+func (r *BaseRepository[T]) Create(ctx context.Context, model *T) error {
+	return r.db.WithContext(ctx).Create(model).Error
+}
+
+// CreateBatch inserts multiple records
+func (r *BaseRepository[T]) CreateBatch(ctx context.Context, models []*T) error {
+	if len(models) == 0 {
+		return nil
+	}
+	return r.db.WithContext(ctx).Create(&models).Error
+}
+
+// Save updates a single record (creates if not exists)
+func (r *BaseRepository[T]) Save(ctx context.Context, model *T) error {
+	return r.db.WithContext(ctx).Save(model).Error
+}
+
+// Update updates specific fields of a record
+func (r *BaseRepository[T]) Update(ctx context.Context, model *T, fields map[string]interface{}) error {
+	return r.db.WithContext(ctx).Model(model).Updates(fields).Error
+}
+
+// Delete deletes a single record
+func (r *BaseRepository[T]) Delete(ctx context.Context, model *T) error {
+	return r.db.WithContext(ctx).Delete(model).Error
+}
+
+// Unscoped returns repository that includes soft-deleted records
+func (r *BaseRepository[T]) Unscoped() *gorm.DB {
+	return r.db.Unscoped()
+}
+`
+
+const repoTemplate = `// Code generated by ss-plugin-db. DO NOT EDIT.
+// Source: ss db gorm gen
+
+package {{.PackageName}}
+
+import (
+{{range .Imports}}	"{{.}}"
+{{end}}
+	"{{.ModelImport}}"
+)
+
+// {{.StructName}} provides database operations for {{.ModelName}}
+type {{.StructName}} struct {
+	*BaseRepository[{{.ModelPackage}}.{{.ModelName}}]
+}
+
+// New{{.StructName}} creates a new {{.StructName}}
+func New{{.StructName}}(db *gorm.DB) *{{.StructName}} {
+	return &{{.StructName}}{
+		BaseRepository: NewBaseRepository[{{.ModelPackage}}.{{.ModelName}}](db),
+	}
+}
+
+{{if .PrimaryKey}}
+{{if not .PrimaryKey.Composite}}
+// FindByID finds a {{.ModelName}} by its primary key
+func (r *{{.StructName}}) FindByID(ctx context.Context, {{range $i, $f := .PrimaryKey.Fields}}{{if $i}}, {{end}}{{$f.Name | toLower}} {{$f.Type}}{{end}}) (*{{.ModelPackage}}.{{.ModelName}}, error) {
+	{{if $.WithTrace}}ctx, span := otel.Tracer("").Start(ctx, "{{.StructName}}.FindByID")
+	defer span.End()
+	{{range .PrimaryKey.Fields}}span.SetAttributes(attribute.String("{{.Column}}", fmt.Sprint({{.Name | toLower}})))
+	{{end}}
+	{{end}}var m {{$.ModelPackage}}.{{.ModelName}}
+	err := r.db.WithContext(ctx).Where("{{(index .PrimaryKey.Fields 0).Column}} = ?", {{(index .PrimaryKey.Fields 0).Name | toLower}}).First(&m).Error
+	if err != nil {
+		return nil, err
+	}
+	return &m, nil
+}
+
+// ExistsByID checks if a {{.ModelName}} exists by its primary key
+func (r *{{.StructName}}) ExistsByID(ctx context.Context, {{range $i, $f := .PrimaryKey.Fields}}{{if $i}}, {{end}}{{$f.Name | toLower}} {{$f.Type}}{{end}}) (bool, error) {
+	{{if $.WithTrace}}ctx, span := otel.Tracer("").Start(ctx, "{{.StructName}}.ExistsByID")
+	defer span.End()
+	{{end}}var count int64
+	err := r.db.WithContext(ctx).Model((*{{$.ModelPackage}}.{{.ModelName}})(nil)).Where("{{(index .PrimaryKey.Fields 0).Column}} = ?", {{(index .PrimaryKey.Fields 0).Name | toLower}}).Count(&count).Error
+	return count > 0, err
+}
+
+// DeleteByID deletes a {{.ModelName}} by its primary key
+func (r *{{.StructName}}) DeleteByID(ctx context.Context, {{range $i, $f := .PrimaryKey.Fields}}{{if $i}}, {{end}}{{$f.Name | toLower}} {{$f.Type}}{{end}}) error {
+	{{if $.WithTrace}}ctx, span := otel.Tracer("").Start(ctx, "{{.StructName}}.DeleteByID")
+	defer span.End()
+	{{end}}return r.db.WithContext(ctx).Where("{{(index .PrimaryKey.Fields 0).Column}} = ?", {{(index .PrimaryKey.Fields 0).Name | toLower}}).Delete((*{{$.ModelPackage}}.{{.ModelName}})(nil)).Error
+}
+
+// UpdateByID updates a {{.ModelName}} by its primary key
+func (r *{{.StructName}}) UpdateByID(ctx context.Context, {{range $i, $f := .PrimaryKey.Fields}}{{if $i}}, {{end}}{{$f.Name | toLower}} {{$f.Type}}{{end}}, updates map[string]interface{}) error {
+	{{if $.WithTrace}}ctx, span := otel.Tracer("").Start(ctx, "{{.StructName}}.UpdateByID")
+	defer span.End()
+	{{end}}return r.db.WithContext(ctx).Model((*{{$.ModelPackage}}.{{.ModelName}})(nil)).Where("{{(index .PrimaryKey.Fields 0).Column}} = ?", {{(index .PrimaryKey.Fields 0).Name | toLower}}).Updates(updates).Error
+}
+{{else}}
+// FindByPK finds a {{.ModelName}} by its composite primary key
+func (r *{{.StructName}}) FindByPK(ctx context.Context, {{range $i, $f := .PrimaryKey.Fields}}{{if $i}}, {{end}}{{$f.Name | toLower}} {{$f.Type}}{{end}}) (*{{.ModelPackage}}.{{.ModelName}}, error) {
+	{{if $.WithTrace}}ctx, span := otel.Tracer("").Start(ctx, "{{.StructName}}.FindByPK")
+	defer span.End()
+	{{end}}var m {{$.ModelPackage}}.{{.ModelName}}
+	query := r.db.WithContext(ctx)
+	{{range $i, $f := .PrimaryKey.Fields}}query = query.Where("{{$f.Column}} = ?", {{$f.Name | toLower}})
+	{{end}}err := query.First(&m).Error
+	if err != nil {
+		return nil, err
+	}
+	return &m, nil
+}
+{{end}}
+{{end}}
+
+// FindAll returns all {{.ModelName}} records
+func (r *{{.StructName}}) FindAll(ctx context.Context) ([]*{{.ModelPackage}}.{{.ModelName}}, error) {
+	{{if $.WithTrace}}ctx, span := otel.Tracer("").Start(ctx, "{{.StructName}}.FindAll")
+	defer span.End()
+	{{end}}var models []*{{$.ModelPackage}}.{{.ModelName}}
+	err := r.db.WithContext(ctx).Find(&models).Error
+	return models, err
+}
+
+// FindAllWithPagination returns paginated {{.ModelName}} records
+func (r *{{.StructName}}) FindAllWithPagination(ctx context.Context, offset, limit int) ([]*{{.ModelPackage}}.{{.ModelName}}, error) {
+	{{if $.WithTrace}}ctx, span := otel.Tracer("").Start(ctx, "{{.StructName}}.FindAllWithPagination")
+	defer span.End()
+	{{end}}var models []*{{$.ModelPackage}}.{{.ModelName}}
+	err := r.db.WithContext(ctx).Offset(offset).Limit(limit).Find(&models).Error
+	return models, err
+}
+
+// Count returns the total count of {{.ModelName}} records
+func (r *{{.StructName}}) Count(ctx context.Context) (int64, error) {
+	{{if $.WithTrace}}ctx, span := otel.Tracer("").Start(ctx, "{{.StructName}}.Count")
+	defer span.End()
+	{{end}}var count int64
+	err := r.db.WithContext(ctx).Model((*{{$.ModelPackage}}.{{.ModelName}})(nil)).Count(&count).Error
+	return count, err
+}
+
+// Query returns a query builder for {{.ModelName}}
+func (r *{{.StructName}}) Query(ctx context.Context) *gorm.DB {
+	return r.db.WithContext(ctx).Model((*{{.ModelPackage}}.{{.ModelName}})(nil))
+}
+{{if .SoftDelete}}
+
+// FindByIDUnscoped finds a {{.ModelName}} by ID including soft-deleted records
+func (r *{{.StructName}}) FindByIDUnscoped(ctx context.Context, {{range $i, $f := .PrimaryKey.Fields}}{{if $i}}, {{end}}{{$f.Name | toLower}} {{$f.Type}}{{end}}) (*{{.ModelPackage}}.{{.ModelName}}, error) {
+	{{if $.WithTrace}}ctx, span := otel.Tracer("").Start(ctx, "{{.StructName}}.FindByIDUnscoped")
+	defer span.End()
+	{{end}}var m {{$.ModelPackage}}.{{.ModelName}}
+	err := r.db.WithContext(ctx).Unscoped().Where("{{(index .PrimaryKey.Fields 0).Column}} = ?", {{(index .PrimaryKey.Fields 0).Name | toLower}}).First(&m).Error
+	if err != nil {
+		return nil, err
+	}
+	return &m, nil
+}
+
+// Restore restores a soft-deleted {{.ModelName}}
+func (r *{{.StructName}}) Restore(ctx context.Context, {{range $i, $f := .PrimaryKey.Fields}}{{if $i}}, {{end}}{{$f.Name | toLower}} {{$f.Type}}{{end}}) error {
+	{{if $.WithTrace}}ctx, span := otel.Tracer("").Start(ctx, "{{.StructName}}.Restore")
+	defer span.End()
+	{{end}}return r.db.WithContext(ctx).Unscoped().Model((*{{$.ModelPackage}}.{{.ModelName}})(nil)).Where("{{(index .PrimaryKey.Fields 0).Column}} = ?", {{(index .PrimaryKey.Fields 0).Name | toLower}}).Update("deleted_at", nil).Error
+}
+
+// HardDelete permanently deletes a {{.ModelName}}
+func (r *{{.StructName}}) HardDelete(ctx context.Context, {{range $i, $f := .PrimaryKey.Fields}}{{if $i}}, {{end}}{{$f.Name | toLower}} {{$f.Type}}{{end}}) error {
+	{{if $.WithTrace}}ctx, span := otel.Tracer("").Start(ctx, "{{.StructName}}.HardDelete")
+	defer span.End()
+	{{end}}return r.db.WithContext(ctx).Unscoped().Where("{{(index .PrimaryKey.Fields 0).Column}} = ?", {{(index .PrimaryKey.Fields 0).Name | toLower}}).Delete((*{{$.ModelPackage}}.{{.ModelName}})(nil)).Error
+}
+{{end}}
+`

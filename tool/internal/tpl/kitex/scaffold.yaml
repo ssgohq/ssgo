@@ -1,0 +1,64 @@
+# Kitex Service Scaffold Configuration
+# This file defines the template configuration for generating Kitex RPC service scaffolds.
+
+name: kitex-scaffold
+description: Generate Kitex RPC service with ServiceContext pattern
+
+layouts:
+  # Service context - user editable, generate once
+  - name: service_context
+    path: internal/svc/service_context.go
+    tpl: svc.tpl
+    tags: [scaffold]
+    update_behavior:
+      type: skip
+
+  # Config struct - user editable, generate once
+  - name: config
+    path: internal/config/config.go
+    tpl: config.tpl
+    tags: [scaffold]
+    update_behavior:
+      type: skip
+
+  # Config YAML
+  - name: config_yaml
+    path: etc/config.yaml
+    tpl: config_yaml.tpl
+    tags: [scaffold]
+    update_behavior:
+      type: skip
+
+  # Server implementation - always regenerate (DO NOT EDIT)
+  - name: server
+    path: internal/server/{{ToSnakeCase .ServiceLower}}_server.go
+    tpl: server.tpl
+    tags: [scaffold, server]
+    update_behavior:
+      type: cover
+
+  # Logic files - one per method, skip if exists (preserve user code)
+  - name: logic
+    path: internal/logic/{{ToSnakeCase .MethodName}}_logic.go
+    tpl: logic_method.tpl
+    tags: [scaffold, logic]
+    loop:
+      loop_method: true
+    update_behavior:
+      type: skip
+
+  # Main entry point
+  - name: main
+    path: cmd/main.go
+    tpl: main.tpl
+    tags: [scaffold]
+    update_behavior:
+      type: skip
+
+  # Go mod
+  - name: go_mod
+    path: go.mod
+    tpl: go_mod.tpl
+    tags: [scaffold]
+    update_behavior:
+      type: skip

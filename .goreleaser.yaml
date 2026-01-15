@@ -1,0 +1,134 @@
+# GoReleaser configuration for ssgo
+# Documentation: https://goreleaser.com
+
+version: 2
+
+project_name: ss
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: ss
+    main: ./tool/cmd/ssgo
+    binary: ss
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ignore:
+      - goos: windows
+        goarch: arm64
+    ldflags:
+      - -s -w
+      - -X main.Version={{.Version}}
+      - -X main.GitCommit={{.ShortCommit}}
+      - -X main.BuildDate={{.CommitDate}}
+    mod_timestamp: "{{ .CommitTimestamp }}"
+
+archives:
+  - id: ss
+    name_template: >-
+      {{ .ProjectName }}_
+      {{- title .Os }}_
+      {{- if eq .Arch "amd64" }}x86_64
+      {{- else if eq .Arch "386" }}i386
+      {{- else }}{{ .Arch }}{{ end }}
+      {{- if .Arm }}v{{ .Arm }}{{ end }}
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+    files:
+      - none*
+
+checksum:
+  name_template: "checksums.txt"
+  algorithm: sha256
+
+snapshot:
+  version_template: "{{ incpatch .Version }}-next"
+
+changelog:
+  sort: asc
+  use: github
+  groups:
+    - title: "🚀 Features"
+      regexp: '^.*?feat(\([[:word:]]+\))??!?:.+$'
+      order: 0
+    - title: "🐛 Bug Fixes"
+      regexp: '^.*?fix(\([[:word:]]+\))??!?:.+$'
+      order: 1
+    - title: "📚 Documentation"
+      regexp: '^.*?docs(\([[:word:]]+\))??!?:.+$'
+      order: 2
+    - title: "🧹 Maintenance"
+      regexp: '^.*?(chore|refactor|style|test)(\([[:word:]]+\))??!?:.+$'
+      order: 3
+    - title: "⬆️ Dependencies"
+      regexp: '^.*?deps(\([[:word:]]+\))??!?:.+$'
+      order: 4
+    - title: "Other"
+      order: 999
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^chore\\(deps\\):"
+      - "Merge pull request"
+      - "Merge branch"
+
+release:
+  github:
+    owner: ssgohq
+    name: ssgo
+  draft: false
+  prerelease: auto
+  mode: replace
+  name_template: "v{{ .Version }}"
+  header: |
+    ## ssgo v{{ .Version }}
+
+    Welcome to this new release of ssgo - the all-in-one Go development toolkit!
+  footer: |
+    ## Installation
+
+    ```bash
+    # Using Homebrew (cask)
+    brew install --cask ssgohq/tap/ss
+    ```
+
+    **Full Changelog**: https://github.com/ssgohq/ssgo/compare/{{ .PreviousTag }}...{{ .Tag }}
+
+homebrew_casks:
+  - name: ss
+    ids:
+      - ss
+    repository:
+      owner: ssgohq
+      name: homebrew-tap
+      branch: main
+      token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
+    directory: Casks
+    url:
+      template: "https://github.com/ssgohq/ssgo/releases/download/{{ .Tag }}/{{ .ArtifactName }}"
+      verified: github.com/ssgohq/ssgo
+    commit_author:
+      name: ssgohq
+      email: ssgohq@users.noreply.github.com
+    commit_msg_template: "Cask update for {{ .ProjectName }} version {{ .Tag }}"
+    homepage: "https://github.com/ssgohq/ssgo"
+    description: "All-in-one Go development toolkit with code generation and runtime utilities"
+    binaries:
+      - ss
+    hooks:
+      post:
+        install: |
+          if OS.mac?
+            system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/ss"]
+          end
