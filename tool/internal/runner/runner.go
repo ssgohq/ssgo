@@ -6,7 +6,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 
 	"github.com/ssgohq/ssgo/internal/util/log"
 	"github.com/ssgohq/ssgo/tool/internal/tui"
@@ -102,11 +102,7 @@ func (r *Runner) runTUIMode(ctx context.Context) error {
 	model := tui.NewModel(r.supervisor)
 
 	// Create Bubble Tea program
-	p := tea.NewProgram(
-		model,
-		tea.WithAltScreen(),
-		tea.WithMouseCellMotion(),
-	)
+	p := tea.NewProgram(model)
 
 	// Handle signals in goroutine - just forward to TUI quit
 	go func() {

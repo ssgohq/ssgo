@@ -1,8 +1,8 @@
 package tui
 
 import (
-	"github.com/charmbracelet/bubbles/textinput"
-	tea "github.com/charmbracelet/bubbletea"
+	"charm.land/bubbles/v2/textinput"
+	tea "charm.land/bubbletea/v2"
 )
 
 // SearchBar is a search input component.
@@ -17,10 +17,7 @@ func NewSearchBar() *SearchBar {
 	ti := textinput.New()
 	ti.Placeholder = "Type to search..."
 	ti.CharLimit = 100
-	ti.Width = 40
 	ti.Prompt = ""
-	ti.TextStyle = SearchInputStyle
-	ti.PlaceholderStyle = HelpStyle
 
 	return &SearchBar{
 		input:   ti,
@@ -31,7 +28,7 @@ func NewSearchBar() *SearchBar {
 // SetWidth sets the search bar width.
 func (s *SearchBar) SetWidth(width int) {
 	s.width = width
-	s.input.Width = width - 12 // Account for prompt and padding
+	s.input.SetWidth(width - 12) // Account for prompt and padding
 }
 
 // Focus focuses the search bar and selects all text for easy replacement.
@@ -84,7 +81,7 @@ func (s *SearchBar) Update(msg tea.Msg) (tea.Cmd, bool) {
 	var cmd tea.Cmd
 
 	switch msg := msg.(type) {
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
 		switch msg.String() {
 		case "esc":
 			s.Clear()

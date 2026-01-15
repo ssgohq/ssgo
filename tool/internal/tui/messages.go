@@ -81,6 +81,12 @@ type SwitchTabMsg struct {
 	Index int
 }
 
+// CopySuccessMsg signals that content was copied to clipboard.
+type CopySuccessMsg struct{}
+
+// ClearStatusMsg signals to clear the status message.
+type ClearStatusMsg struct{}
+
 // NewLogEntry creates a new log entry.
 func NewLogEntry(service, message string, level LogLevel) LogEntry {
 	return LogEntry{

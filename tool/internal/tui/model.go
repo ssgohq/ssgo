@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/lipgloss"
 )
 
@@ -35,7 +35,13 @@ type Model struct {
 	// State
 	ready    bool
 	quitting bool
+
+	// Toast notification
+	toastMessage string
+	toastTime    time.Time
 }
+
+const toastDuration = 2 * time.Second
 
 // NewModel creates a new TUI model.
 func NewModel(manager ServiceManager) *Model {
@@ -51,10 +57,7 @@ func NewModel(manager ServiceManager) *Model {
 
 // Init initializes the model.
 func (m *Model) Init() tea.Cmd {
-	return tea.Batch(
-		tea.SetWindowTitle("ss run"),
-		m.tick(),
-	)
+	return m.tick()
 }
 
 // tick returns a command that sends a tick message periodically.
@@ -69,8 +72,21 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmds []tea.Cmd
 
 	switch msg := msg.(type) {
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
 		return m.handleKeyMsg(msg)
+
+	case tea.MouseClickMsg, tea.MouseWheelMsg:
+		cmd := m.logView.Update(msg)
+		if cmd != nil {
+			// Mouse click triggered a copy
+			count := m.logView.LastCopyCount()
+			if count > 1 {
+				m.showToast(fmt.Sprintf("✓ Copied %d lines", count))
+			} else {
+				m.showToast("✓ Copied!")
+			}
+		}
+		return m, cmd
 
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
@@ -81,6 +97,10 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case TickMsg:
 		for name, state := range m.manager.ServiceStates() {
 			m.tabBar.SetState(name, state)
+		}
+		// Clear toast after duration
+		if m.toastMessage != "" && time.Since(m.toastTime) > toastDuration {
+			m.toastMessage = ""
 		}
 		cmds = append(cmds, m.tick())
 
@@ -104,7 +124,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 // handleKeyMsg handles keyboard input messages.
-func (m *Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+func (m *Model) handleKeyMsg(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	// Handle global keys when search bar is not focused
 	if !m.searchBar.IsFocused() {
 		if model, cmd, handled := m.handleGlobalKey(msg); handled {
@@ -121,11 +141,26 @@ func (m *Model) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	// Forward to log view
 	cmd := m.logView.Update(msg)
+	// Check if it was a copy action ('c' key)
+	if msg.String() == "c" && cmd != nil {
+		count := m.logView.LastCopyCount()
+		if count > 1 {
+			m.showToast(fmt.Sprintf("✓ Copied %d lines", count))
+		} else {
+			m.showToast("✓ Copied!")
+		}
+	}
 	return m, cmd
 }
 
+// showToast displays a temporary toast message.
+func (m *Model) showToast(message string) {
+	m.toastMessage = message
+	m.toastTime = time.Now()
+}
+
 // handleGlobalKey handles global keyboard shortcuts.
-func (m *Model) handleGlobalKey(msg tea.KeyMsg) (tea.Model, tea.Cmd, bool) {
+func (m *Model) handleGlobalKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd, bool) {
 	switch msg.String() {
 	case "q", "ctrl+c":
 		m.quitting = true
@@ -150,7 +185,7 @@ func (m *Model) handleGlobalKey(msg tea.KeyMsg) (tea.Model, tea.Cmd, bool) {
 	case "a":
 		m.logView.ToggleAutoScroll()
 		return m, nil, true
-	case "c":
+	case "C":
 		m.logView.Clear()
 		return m, nil, true
 	case "r":
@@ -207,14 +242,20 @@ func (m *Model) updateServiceFilter() {
 	m.logView.SetServiceFilter(m.tabBar.ActiveName())
 }
 
-// View renders the TUI.
-func (m *Model) View() string {
+// View renders the TUI using v2 tea.View.
+func (m *Model) View() tea.View {
 	if !m.ready {
-		return "\n  Initializing..."
+		v := tea.NewView("\n  Initializing...")
+		v.AltScreen = true
+		v.MouseMode = tea.MouseModeCellMotion
+		return v
 	}
 
 	if m.quitting {
-		return "\n  Shutting down...\n"
+		v := tea.NewView("\n  Shutting down...\n")
+		v.AltScreen = true
+		v.MouseMode = tea.MouseModeCellMotion
+		return v
 	}
 
 	divider := DividerStyle.Render(strings.Repeat("─", m.width))
@@ -240,18 +281,51 @@ func (m *Model) View() string {
 		parts = append(parts, m.renderStatusBar())
 	}
 
-	return lipgloss.JoinVertical(lipgloss.Left, parts...)
+	v := tea.NewView(lipgloss.JoinVertical(lipgloss.Left, parts...))
+	v.AltScreen = true
+	v.MouseMode = tea.MouseModeCellMotion
+	return v
 }
 
 // renderStatusBar renders the bottom status bar.
 func (m *Model) renderStatusBar() string {
+	// If there's a toast message, show it prominently
+	if m.toastMessage != "" {
+		toastStyle := lipgloss.NewStyle().
+			Foreground(ColorSuccess).
+			Bold(true)
+		toast := toastStyle.Render(m.toastMessage)
+
+		// Right side info
+		scrollInfo := ""
+		if !m.logView.IsAutoScrolling() {
+			scrollInfo = fmt.Sprintf("%.0f%%", m.logView.ScrollPercent()*100)
+		} else {
+			scrollInfo = "AUTO"
+		}
+		logCount := fmt.Sprintf("%d/%d logs", m.logView.LogCount(), m.logView.TotalLogCount())
+		right := HelpStyle.Render(logCount + " │ " + scrollInfo)
+
+		// Calculate spacing
+		leftWidth := lipgloss.Width(toast)
+		rightWidth := lipgloss.Width(right)
+		spacing := m.width - leftWidth - rightWidth - 2
+		if spacing < 0 {
+			spacing = 0
+		}
+
+		content := toast + strings.Repeat(" ", spacing) + right
+		return StatusBarStyle.Width(m.width).Render(content)
+	}
+
 	// Build status items
 	items := []string{
 		StatusKeyStyle.Render("Tab") + StatusDescStyle.Render(": switch"),
 		StatusKeyStyle.Render("/") + StatusDescStyle.Render(": search"),
 		StatusKeyStyle.Render("r") + StatusDescStyle.Render(": restart"),
-		StatusKeyStyle.Render("a") + StatusDescStyle.Render(": auto-scroll"),
-		StatusKeyStyle.Render("c") + StatusDescStyle.Render(": clear"),
+		StatusKeyStyle.Render("↑↓") + StatusDescStyle.Render(": select"),
+		StatusKeyStyle.Render("c") + StatusDescStyle.Render(": copy"),
+		StatusKeyStyle.Render("C") + StatusDescStyle.Render(": clear"),
 		StatusKeyStyle.Render("q") + StatusDescStyle.Render(": quit"),
 	}
 
