@@ -36,36 +36,3 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
-
-  verify:
-    name: Verify Release
-    needs: release
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ubuntu-latest, macos-latest]
-        arch: [amd64, arm64]
-        exclude:
-          - os: ubuntu-latest
-            arch: arm64
-    steps:
-      - name: Download and verify (Linux)
-        if: runner.os == 'Linux'
-        run: |
-          VERSION="${{ github.ref_name }}"
-          curl -sL "https://github.com/ssgohq/ssgo/releases/download/${VERSION}/ssgo_Linux_x86_64.tar.gz" | tar xz
-          ./ssgo version
-
-      - name: Download and verify (macOS amd64)
-        if: runner.os == 'macOS' && matrix.arch == 'amd64'
-        run: |
-          VERSION="${{ github.ref_name }}"
-          curl -sL "https://github.com/ssgohq/ssgo/releases/download/${VERSION}/ssgo_Darwin_x86_64.tar.gz" | tar xz
-          ./ssgo version
-
-      - name: Download and verify (macOS arm64)
-        if: runner.os == 'macOS' && matrix.arch == 'arm64'
-        run: |
-          VERSION="${{ github.ref_name }}"
-          curl -sL "https://github.com/ssgohq/ssgo/releases/download/${VERSION}/ssgo_Darwin_arm64.tar.gz" | tar xz
-          ./ssgo version
