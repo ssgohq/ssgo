@@ -465,9 +465,10 @@ func (l *LogView) Update(msg tea.Msg) tea.Cmd {
 		}
 
 	case tea.MouseWheelMsg:
-		if msg.Button == tea.MouseWheelUp {
+		switch msg.Button {
+		case tea.MouseWheelUp:
 			l.scrollUp(3)
-		} else if msg.Button == tea.MouseWheelDown {
+		case tea.MouseWheelDown:
 			l.scrollDown(3)
 		}
 	}
