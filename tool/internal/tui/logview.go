@@ -35,10 +35,14 @@ type LogView struct {
 	// Service colors mapping
 	serviceColors map[string]lipgloss.Color
 
-	// Selection - now tracks a group of related log entries
-	selectedLogIndex int // Index into filteredLogs (-1 = none)
-	selectionStart   int // First log index in selection group
-	selectionEnd     int // Last log index in selection group (inclusive)
+	// Selection
+	selectedLogIndex int // Current cursor position in filteredLogs (-1 = none)
+	selectionAnchor  int // Anchor point for shift-selection (-1 = none)
+	selectionStart   int // First log index in selection (inclusive)
+	selectionEnd     int // Last log index in selection (inclusive)
+
+	// Last copy info
+	lastCopyCount int
 
 	// Scroll position (first visible line index in wrappedLines)
 	scrollOffset int
@@ -69,6 +73,7 @@ func NewLogView(services []string) *LogView {
 		wrappedLines:     make([]wrappedLine, 0, 1000),
 		serviceColors:    colors,
 		selectedLogIndex: -1,
+		selectionAnchor:  -1,
 		selectionStart:   -1,
 		selectionEnd:     -1,
 		maxServiceWidth:  maxWidth,
@@ -178,6 +183,40 @@ func (l *LogView) isInSelectionGroup(logIndex int) bool {
 	return logIndex >= l.selectionStart && logIndex <= l.selectionEnd
 }
 
+// expandSelectionToContinuations expands selection to include continuation lines at boundaries.
+func (l *LogView) expandSelectionToContinuations() {
+	if l.selectionStart < 0 || l.selectionEnd < 0 {
+		return
+	}
+
+	// Expand start backwards to include continuation lines
+	for l.selectionStart > 0 && l.isContinuationLine(l.selectionStart) {
+		prevEntry := l.filteredLogs[l.selectionStart-1]
+		currEntry := l.filteredLogs[l.selectionStart]
+		if prevEntry.Service == currEntry.Service {
+			l.selectionStart--
+		} else {
+			break
+		}
+	}
+
+	// Expand end forwards to include continuation lines
+	for l.selectionEnd < len(l.filteredLogs)-1 {
+		nextIdx := l.selectionEnd + 1
+		if l.isContinuationLine(nextIdx) {
+			nextEntry := l.filteredLogs[nextIdx]
+			currEntry := l.filteredLogs[l.selectionEnd]
+			if nextEntry.Service == currEntry.Service {
+				l.selectionEnd++
+			} else {
+				break
+			}
+		} else {
+			break
+		}
+	}
+}
+
 // matchesFilter checks if an entry matches the current filters.
 func (l *LogView) matchesFilter(entry LogEntry) bool {
 	// Service filter
@@ -206,6 +245,7 @@ func (l *LogView) refresh() {
 	}
 
 	l.selectedLogIndex = -1
+	l.selectionAnchor = -1
 	l.selectionStart = -1
 	l.selectionEnd = -1
 	l.rebuildWrappedLines()
@@ -396,9 +436,13 @@ func (l *LogView) Update(msg tea.Msg) tea.Cmd {
 	case tea.KeyPressMsg:
 		switch msg.String() {
 		case "up", "k":
-			l.moveToPrevLog()
+			l.moveToPrevLog(false)
 		case "down", "j":
-			l.moveToNextLog()
+			l.moveToNextLog(false)
+		case "shift+up", "K":
+			l.moveToPrevLog(true)
+		case "shift+down", "J":
+			l.moveToNextLog(true)
 		case "home", "g":
 			l.selectFirstLog()
 		case "end", "G":
@@ -408,7 +452,9 @@ func (l *LogView) Update(msg tea.Msg) tea.Cmd {
 		case "pgdown", "ctrl+d":
 			l.pageDown()
 		case "c":
-			return l.copySelectedLog()
+			cmd, count := l.copySelectedLog()
+			l.lastCopyCount = count
+			return cmd
 		case "esc":
 			l.clearSelection()
 		}
@@ -429,8 +475,9 @@ func (l *LogView) Update(msg tea.Msg) tea.Cmd {
 	return nil
 }
 
-// moveToPrevLog moves selection to the previous log group.
-func (l *LogView) moveToPrevLog() {
+// moveToPrevLog moves selection to the previous log entry.
+// If extend is true (shift held), extends the selection instead of moving it.
+func (l *LogView) moveToPrevLog(extend bool) {
 	if len(l.filteredLogs) == 0 {
 		return
 	}
@@ -441,17 +488,30 @@ func (l *LogView) moveToPrevLog() {
 		if l.selectedLogIndex == -1 {
 			l.selectedLogIndex = len(l.filteredLogs) - 1
 		}
-	} else if l.selectionStart > 0 {
-		// Move to the entry before the current group
-		l.selectedLogIndex = l.selectionStart - 1
+		l.selectionAnchor = l.selectedLogIndex
+	} else if l.selectedLogIndex > 0 {
+		if extend {
+			// Set anchor if not set
+			if l.selectionAnchor == -1 {
+				l.selectionAnchor = l.selectedLogIndex
+			}
+			l.selectedLogIndex--
+		} else {
+			// Normal move - reset anchor and move before current selection
+			if l.selectionStart > 0 {
+				l.selectedLogIndex = l.selectionStart - 1
+			}
+			l.selectionAnchor = l.selectedLogIndex
+		}
 	}
 
-	l.updateSelectionGroup()
+	l.updateSelectionRange(extend)
 	l.ensureSelectedVisible()
 }
 
-// moveToNextLog moves selection to the next log group.
-func (l *LogView) moveToNextLog() {
+// moveToNextLog moves selection to the next log entry.
+// If extend is true (shift held), extends the selection instead of moving it.
+func (l *LogView) moveToNextLog(extend bool) {
 	if len(l.filteredLogs) == 0 {
 		return
 	}
@@ -462,13 +522,50 @@ func (l *LogView) moveToNextLog() {
 		if l.selectedLogIndex == -1 {
 			l.selectedLogIndex = 0
 		}
-	} else if l.selectionEnd < len(l.filteredLogs)-1 {
-		// Move to the entry after the current group
-		l.selectedLogIndex = l.selectionEnd + 1
+		l.selectionAnchor = l.selectedLogIndex
+	} else if l.selectedLogIndex < len(l.filteredLogs)-1 {
+		if extend {
+			// Set anchor if not set
+			if l.selectionAnchor == -1 {
+				l.selectionAnchor = l.selectedLogIndex
+			}
+			l.selectedLogIndex++
+		} else {
+			// Normal move - reset anchor and move after current selection
+			if l.selectionEnd < len(l.filteredLogs)-1 {
+				l.selectedLogIndex = l.selectionEnd + 1
+			}
+			l.selectionAnchor = l.selectedLogIndex
+		}
 	}
 
-	l.updateSelectionGroup()
+	l.updateSelectionRange(extend)
 	l.ensureSelectedVisible()
+}
+
+// updateSelectionRange updates selection range based on anchor and current position.
+func (l *LogView) updateSelectionRange(extend bool) {
+	if l.selectedLogIndex < 0 {
+		l.selectionStart = -1
+		l.selectionEnd = -1
+		return
+	}
+
+	if extend && l.selectionAnchor >= 0 {
+		// Selection is from anchor to current position
+		if l.selectedLogIndex < l.selectionAnchor {
+			l.selectionStart = l.selectedLogIndex
+			l.selectionEnd = l.selectionAnchor
+		} else {
+			l.selectionStart = l.selectionAnchor
+			l.selectionEnd = l.selectedLogIndex
+		}
+		// Expand to include continuation lines at boundaries
+		l.expandSelectionToContinuations()
+	} else {
+		// Single selection - use continuation group logic
+		l.updateSelectionGroup()
+	}
 }
 
 // selectFirstLog selects the first log entry.
@@ -477,6 +574,7 @@ func (l *LogView) selectFirstLog() {
 		return
 	}
 	l.selectedLogIndex = 0
+	l.selectionAnchor = 0
 	l.updateSelectionGroup()
 	l.ensureSelectedVisible()
 }
@@ -487,6 +585,7 @@ func (l *LogView) selectLastLog() {
 		return
 	}
 	l.selectedLogIndex = len(l.filteredLogs) - 1
+	l.selectionAnchor = l.selectedLogIndex
 	l.updateSelectionGroup()
 	l.ensureSelectedVisible()
 }
@@ -512,6 +611,7 @@ func (l *LogView) pageUp() {
 		l.selectedLogIndex = 0
 	}
 
+	l.selectionAnchor = l.selectedLogIndex
 	l.updateSelectionGroup()
 	l.ensureSelectedVisible()
 }
@@ -536,6 +636,7 @@ func (l *LogView) pageDown() {
 		l.selectedLogIndex = len(l.filteredLogs) - 1
 	}
 
+	l.selectionAnchor = l.selectedLogIndex
 	l.updateSelectionGroup()
 	l.ensureSelectedVisible()
 }
@@ -543,31 +644,34 @@ func (l *LogView) pageDown() {
 // clearSelection clears the current selection.
 func (l *LogView) clearSelection() {
 	l.selectedLogIndex = -1
+	l.selectionAnchor = -1
 	l.selectionStart = -1
 	l.selectionEnd = -1
 }
 
-// copySelectedLog copies the selected log group to clipboard.
-func (l *LogView) copySelectedLog() tea.Cmd {
+// copySelectedLog copies the selected log entries to clipboard.
+// Returns the command and the number of lines copied.
+func (l *LogView) copySelectedLog() (tea.Cmd, int) {
 	if l.selectionStart < 0 || l.selectionEnd < 0 {
-		return nil
+		return nil, 0
 	}
 
-	// Collect all messages in the selection group
-	var messages []string
-	service := ""
+	// Collect all log entries with their prefixes
+	var lines []string
 	for i := l.selectionStart; i <= l.selectionEnd; i++ {
 		if i < len(l.filteredLogs) {
 			entry := l.filteredLogs[i]
-			if service == "" {
-				service = entry.Service
-			}
-			messages = append(messages, entry.Message)
+			line := fmt.Sprintf("[%s] %s", entry.Service, entry.Message)
+			lines = append(lines, line)
 		}
 	}
 
-	text := fmt.Sprintf("[%s] %s", service, strings.Join(messages, "\n"))
-	return tea.SetClipboard(text)
+	if len(lines) == 0 {
+		return nil, 0
+	}
+
+	text := strings.Join(lines, "\n")
+	return tea.SetClipboard(text), len(lines)
 }
 
 // handleMouseClick handles a mouse click at the given y position.
@@ -585,10 +689,13 @@ func (l *LogView) handleMouseClick(y int) tea.Cmd {
 	}
 
 	l.selectedLogIndex = logIndex
+	l.selectionAnchor = logIndex
 	l.updateSelectionGroup()
 
 	// Copy on click
-	return l.copySelectedLog()
+	cmd, count := l.copySelectedLog()
+	l.lastCopyCount = count
+	return cmd
 }
 
 // getLogIndexAtVisualLine returns the log index at a visual line.
@@ -738,6 +845,7 @@ func (l *LogView) Clear() {
 	l.filteredLogs = l.filteredLogs[:0]
 	l.wrappedLines = l.wrappedLines[:0]
 	l.selectedLogIndex = -1
+	l.selectionAnchor = -1
 	l.selectionStart = -1
 	l.selectionEnd = -1
 	l.scrollOffset = 0
@@ -747,6 +855,7 @@ func (l *LogView) Clear() {
 func (l *LogView) ToggleAutoScroll() {
 	l.scrollToBottom()
 	l.selectedLogIndex = -1
+	l.selectionAnchor = -1
 	l.selectionStart = -1
 	l.selectionEnd = -1
 }
@@ -766,16 +875,18 @@ func (l *LogView) SelectedLogMessage() string {
 	if l.selectionStart < 0 || l.selectionEnd < 0 {
 		return ""
 	}
-	var messages []string
-	service := ""
+	var lines []string
 	for i := l.selectionStart; i <= l.selectionEnd; i++ {
 		if i < len(l.filteredLogs) {
 			entry := l.filteredLogs[i]
-			if service == "" {
-				service = entry.Service
-			}
-			messages = append(messages, entry.Message)
+			line := fmt.Sprintf("[%s] %s", entry.Service, entry.Message)
+			lines = append(lines, line)
 		}
 	}
-	return fmt.Sprintf("[%s] %s", service, strings.Join(messages, "\n"))
+	return strings.Join(lines, "\n")
+}
+
+// LastCopyCount returns the number of lines from the last copy operation.
+func (l *LogView) LastCopyCount() int {
+	return l.lastCopyCount
 }

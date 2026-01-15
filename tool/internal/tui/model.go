@@ -79,7 +79,12 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		cmd := m.logView.Update(msg)
 		if cmd != nil {
 			// Mouse click triggered a copy
-			m.showToast("✓ Copied!")
+			count := m.logView.LastCopyCount()
+			if count > 1 {
+				m.showToast(fmt.Sprintf("✓ Copied %d lines", count))
+			} else {
+				m.showToast("✓ Copied!")
+			}
 		}
 		return m, cmd
 
@@ -138,7 +143,12 @@ func (m *Model) handleKeyMsg(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	cmd := m.logView.Update(msg)
 	// Check if it was a copy action ('c' key)
 	if msg.String() == "c" && cmd != nil {
-		m.showToast("✓ Copied!")
+		count := m.logView.LastCopyCount()
+		if count > 1 {
+			m.showToast(fmt.Sprintf("✓ Copied %d lines", count))
+		} else {
+			m.showToast("✓ Copied!")
+		}
 	}
 	return m, cmd
 }
