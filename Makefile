@@ -5,7 +5,7 @@
 
 # Binary name and paths
 BINARY_NAME := ss
-CMD_PATH := ./tool/cmd/ssgo
+CMD_PATH := ./tool/cmd/ss
 BIN_DIR := bin
 
 # Version information
