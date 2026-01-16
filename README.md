@@ -28,7 +28,7 @@ brew upgrade --cask ssgohq/tap/ss
 ### From Source
 
 ```bash
-go install github.com/ssgohq/ssgo/tool/cmd/ssgo@latest
+go install github.com/ssgohq/ssgo/tool/cmd/ss@latest
 ```
 
 ### Manual Download
@@ -138,7 +138,7 @@ ssgo/
 │   ├── stores/          # Database connections
 │   └── trace/           # Tracing
 ├── tool/                 # CLI tool
-│   ├── cmd/ssgo/        # Main CLI entry point
+│   ├── cmd/ss/          # Main CLI entry point
 │   └── internal/        # CLI internal packages
 ├── internal/             # Shared internal packages
 │   ├── ast/             # AST parsers

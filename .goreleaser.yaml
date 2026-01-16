@@ -11,7 +11,7 @@ before:
 
 builds:
   - id: ss
-    main: ./tool/cmd/ssgo
+    main: ./tool/cmd/ss
     binary: ss
     env:
       - CGO_ENABLED=0
