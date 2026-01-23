@@ -13,6 +13,7 @@ import (
 
 	apicmd "github.com/ssgohq/ssgo/tool/internal/cmd/api"
 	dbcmd "github.com/ssgohq/ssgo/tool/internal/cmd/db"
+	replcmd "github.com/ssgohq/ssgo/tool/internal/cmd/repl"
 	rpccmd "github.com/ssgohq/ssgo/tool/internal/cmd/rpc"
 	"github.com/ssgohq/ssgo/tool/internal/cmdctx"
 	"github.com/ssgohq/ssgo/tool/internal/runner"
@@ -36,7 +37,9 @@ It provides commands for:
   - api     Generate HTTP API services (Hertz-based)
   - rpc     Generate RPC services (Kitex-based)
   - db      Generate database models and repositories
-  - run     Run development services
+  - init    Initialize project config (.ss.yaml)
+  - dev     Run development services with hot reload
+  - repl    Interactive gRPC REPL (Evans)
 
 Configuration:
   - .ss.yaml    (project config)
@@ -76,7 +79,9 @@ func init() {
 	rootCmd.AddCommand(apiCmd)
 	rootCmd.AddCommand(rpcCmd)
 	rootCmd.AddCommand(dbCmd)
-	rootCmd.AddCommand(runCmd)
+	rootCmd.AddCommand(initCmd)
+	rootCmd.AddCommand(devCmd)
+	rootCmd.AddCommand(replCmd)
 }
 
 // versionCmd represents the version command
@@ -164,33 +169,43 @@ Examples:
 
 // Run command flags
 var (
-	runConfigFile string
-	runNoWatch    bool
-	runNoBuild    bool
-	runNoTUI      bool
+	devConfigFile string
+	devNoWatch    bool
+	devNoBuild    bool
+	devNoTUI      bool
 )
 
-// runCmd wraps the run command
-var runCmd = &cobra.Command{
-	Use:   "run [services...]",
+// initCmd initializes project config
+var initCmd = &cobra.Command{
+	Use:   "init",
+	Short: "Initialize project config (.ss.yaml)",
+	Long: `Scan project structure and generate .ss.yaml configuration.
+
+Discovers Go services by finding directories with:
+  - go.mod file
+  - main.go or cmd/*/main.go
+
+Examples:
+  ss init                     # Scan current directory
+  ss init --force             # Overwrite existing config`,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		workDir, _ := os.Getwd()
+		return runner.InitConfig(workDir)
+	},
+}
+
+// devCmd wraps the dev command (was: run)
+var devCmd = &cobra.Command{
+	Use:   "dev [services...]",
 	Short: "Run development services with hot reload",
 	Long: `Run and manage multiple micro-services with hot reload and TUI.
 
-Commands:
-  init    Scan project and generate run config in .ss.yaml
-
 Examples:
-  ss run                    # Run all services
-  ss run api rpc            # Run specific services
-  ss run --no-tui           # Run without TUI
-  ss run init               # Generate run config`,
+  ss dev                      # Run all services
+  ss dev api rpc              # Run specific services
+  ss dev --no-tui             # Run without TUI
+  ss dev --no-watch           # Run without file watching`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		// Handle init subcommand
-		if len(args) > 0 && args[0] == "init" {
-			workDir, _ := os.Getwd()
-			return runner.InitConfig(workDir)
-		}
-
 		// Load runner config from .ss.yaml
 		workDir, _ := os.Getwd()
 		runnerConfig, err := loadRunnerConfig(workDir)
@@ -203,9 +218,9 @@ Examples:
 			Config:   runnerConfig,
 			WorkDir:  workDir,
 			Services: args,
-			NoWatch:  runNoWatch,
-			NoBuild:  runNoBuild,
-			NoTUI:    runNoTUI,
+			NoWatch:  devNoWatch,
+			NoBuild:  devNoBuild,
+			NoTUI:    devNoTUI,
 			Verbose:  verbose || debug,
 		}
 
@@ -216,11 +231,40 @@ Examples:
 }
 
 func init() {
-	// Run command flags
-	runCmd.Flags().StringVarP(&runConfigFile, "config", "c", "", "path to config file")
-	runCmd.Flags().BoolVar(&runNoWatch, "no-watch", false, "disable file watching")
-	runCmd.Flags().BoolVar(&runNoBuild, "no-build", false, "skip build step")
-	runCmd.Flags().BoolVar(&runNoTUI, "no-tui", false, "disable TUI, use plain output")
+	// Dev command flags
+	devCmd.Flags().StringVarP(&devConfigFile, "config", "c", "", "path to config file")
+	devCmd.Flags().BoolVar(&devNoWatch, "no-watch", false, "disable file watching")
+	devCmd.Flags().BoolVar(&devNoBuild, "no-build", false, "skip build step")
+	devCmd.Flags().BoolVar(&devNoTUI, "no-tui", false, "disable TUI, use plain output")
+}
+
+// replCmd wraps the repl command
+var replCmd = &cobra.Command{
+	Use:   "repl [service] [evans-args...]",
+	Short: "Interactive gRPC REPL with auto proto detection",
+	Long: `Launch Evans REPL with automatic proto file and address detection.
+
+Reads service configuration from .ss.yaml and auto-detects:
+  - Proto files from idl/, proto/, api/ directories
+  - Server address from etc/config.yaml
+  - Shared proto modules from 'use' config
+
+Evans REPL provides:
+  - Interactive service/method exploration
+  - Auto-completion for packages, services, methods
+  - Interactive message field input
+  - Streaming RPC support
+
+Examples:
+  ss repl                           # Interactive: select service, enter REPL
+  ss repl user-service              # Enter REPL for user-service
+  ss repl user-service cli list     # CLI mode: list services
+  ss repl user-service cli call UserService.GetUser`,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		ctx := createContext(args)
+		return replcmd.Execute(ctx)
+	},
+	DisableFlagParsing: true,
 }
 
 // createContext creates a cmdctx.Context from command args
@@ -239,7 +283,7 @@ func loadRunnerConfig(workDir string) (*runner.RunnerConfig, error) {
 	data, err := os.ReadFile(configPath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return nil, fmt.Errorf("no .ss.yaml found, run 'ss run init' to generate one")
+			return nil, fmt.Errorf("no .ss.yaml found, run 'ss init' to generate one")
 		}
 		return nil, err
 	}
@@ -253,7 +297,7 @@ func loadRunnerConfig(workDir string) (*runner.RunnerConfig, error) {
 	// Extract run section
 	runSection, ok := rawConfig["run"].(map[string]interface{})
 	if !ok {
-		return nil, fmt.Errorf("no 'run' section found in .ss.yaml, run 'ss run init' to generate one")
+		return nil, fmt.Errorf("no 'run' section found in .ss.yaml, run 'ss init' to generate one")
 	}
 
 	// Parse runner config

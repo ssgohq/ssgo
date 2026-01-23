@@ -28,6 +28,7 @@ type ScaffoldData struct {
 	Service      string
 	ServiceLower string
 	TypesModule  string
+	UseTypes     string // Full import path from --use flag (e.g., github.com/org/proto/exmsg/user)
 	GoVersion    string
 	WithTrace    bool
 	WithRedis    bool
@@ -37,6 +38,24 @@ type ScaffoldData struct {
 
 	// Current loop iteration context (set during loop expansion)
 	CurrentMethod *MethodInfo
+}
+
+// TypesImport returns the import path for types (messages).
+// If UseTypes is set, uses it directly. Otherwise uses TypesModule/kitex_gen/ServiceLower.
+func (d *ScaffoldData) TypesImport() string {
+	if d.UseTypes != "" {
+		return d.UseTypes
+	}
+	return d.TypesModule + "/kitex_gen/" + d.ServiceLower
+}
+
+// ServiceImport returns the import path for service client/server.
+// If UseTypes is set, appends service name to it. Otherwise uses TypesModule/kitex_gen/ServiceLower/service.
+func (d *ScaffoldData) ServiceImport() string {
+	if d.UseTypes != "" {
+		return d.UseTypes + "/" + d.ServiceLower + "service"
+	}
+	return d.TypesModule + "/kitex_gen/" + d.ServiceLower + "/" + d.ServiceLower + "service"
 }
 
 // MethodName returns the current method name for templates.

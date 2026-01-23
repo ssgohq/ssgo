@@ -12,11 +12,12 @@ import (
 	"github.com/ssgohq/goten-core/metric"
 	"github.com/ssgohq/goten-core/srpc"
 	"gopkg.in/yaml.v3"
+	_ "github.com/cloudwego/kitex/pkg/remote/codec/protobuf/encoding/gzip" // Register gzip compressor for gRPC clients
 
 	"{{.Module}}/internal/config"
 	svrImpl "{{.Module}}/internal/server"
 	"{{.Module}}/internal/svc"
-	"{{.TypesModule}}/kitex_gen/{{.ServiceLower}}/{{.ServiceLower}}service"
+	"{{.ServiceImport}}"
 )
 
 var configFile = flag.String("c", "etc/config.yaml", "config file")

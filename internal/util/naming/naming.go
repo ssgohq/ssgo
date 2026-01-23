@@ -314,3 +314,127 @@ func ParseGoVersion(version string) string {
 	}
 	return ""
 }
+
+// Singularize converts a plural word to singular form.
+//
+// Examples:
+//
+//	Singularize("users") -> "user"
+//	Singularize("companies") -> "company"
+//	Singularize("people") -> "person"
+func Singularize(s string) string {
+	if s == "" {
+		return ""
+	}
+
+	lower := strings.ToLower(s)
+
+	// Common irregular plurals
+	irregulars := map[string]string{
+		"people":   "person",
+		"men":      "man",
+		"women":    "woman",
+		"children": "child",
+		"feet":     "foot",
+		"teeth":    "tooth",
+		"geese":    "goose",
+		"mice":     "mouse",
+		"data":     "datum",
+		"media":    "medium",
+		"indices":  "index",
+		"vertices": "vertex",
+		"matrices": "matrix",
+	}
+
+	if singular, ok := irregulars[lower]; ok {
+		return preserveCase(s, singular)
+	}
+
+	// Common patterns
+	switch {
+	case strings.HasSuffix(lower, "ies") && len(s) > 3:
+		return s[:len(s)-3] + "y"
+	case strings.HasSuffix(lower, "ves"):
+		return s[:len(s)-3] + "f"
+	case strings.HasSuffix(lower, "oes"):
+		return s[:len(s)-2]
+	case strings.HasSuffix(lower, "ses") || strings.HasSuffix(lower, "xes") ||
+		strings.HasSuffix(lower, "ches") || strings.HasSuffix(lower, "shes"):
+		return s[:len(s)-2]
+	case strings.HasSuffix(lower, "s") && !strings.HasSuffix(lower, "ss"):
+		return s[:len(s)-1]
+	}
+
+	return s
+}
+
+// Pluralize converts a singular word to plural form.
+//
+// Examples:
+//
+//	Pluralize("user") -> "users"
+//	Pluralize("company") -> "companies"
+//	Pluralize("person") -> "people"
+func Pluralize(s string) string {
+	if s == "" {
+		return ""
+	}
+
+	lower := strings.ToLower(s)
+
+	// Common irregular plurals
+	irregulars := map[string]string{
+		"person": "people",
+		"man":    "men",
+		"woman":  "women",
+		"child":  "children",
+		"foot":   "feet",
+		"tooth":  "teeth",
+		"goose":  "geese",
+		"mouse":  "mice",
+		"datum":  "data",
+		"medium": "media",
+		"index":  "indices",
+		"vertex": "vertices",
+		"matrix": "matrices",
+	}
+
+	if plural, ok := irregulars[lower]; ok {
+		return preserveCase(s, plural)
+	}
+
+	// Common patterns
+	switch {
+	case strings.HasSuffix(lower, "y") && len(s) > 1 && !isVowel(rune(lower[len(lower)-2])):
+		return s[:len(s)-1] + "ies"
+	case strings.HasSuffix(lower, "f"):
+		return s[:len(s)-1] + "ves"
+	case strings.HasSuffix(lower, "fe"):
+		return s[:len(s)-2] + "ves"
+	case strings.HasSuffix(lower, "s") || strings.HasSuffix(lower, "x") ||
+		strings.HasSuffix(lower, "ch") || strings.HasSuffix(lower, "sh") ||
+		strings.HasSuffix(lower, "o"):
+		return s + "es"
+	}
+
+	return s + "s"
+}
+
+func isVowel(r rune) bool {
+	return r == 'a' || r == 'e' || r == 'i' || r == 'o' || r == 'u'
+}
+
+func preserveCase(original, replacement string) string {
+	if len(original) == 0 || len(replacement) == 0 {
+		return replacement
+	}
+
+	// If original starts with uppercase, capitalize replacement
+	if unicode.IsUpper(rune(original[0])) {
+		runes := []rune(replacement)
+		runes[0] = unicode.ToUpper(runes[0])
+		return string(runes)
+	}
+
+	return replacement
+}
