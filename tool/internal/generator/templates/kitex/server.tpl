@@ -7,7 +7,7 @@ import (
 
 	"{{.Module}}/internal/logic"
 	"{{.Module}}/internal/svc"
-	"{{.TypesModule}}/kitex_gen/{{.ServiceLower}}"
+	"{{.TypesImport}}"
 )
 
 // {{.Service}}Server implements the {{.Service}} service interface.

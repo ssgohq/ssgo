@@ -11,7 +11,7 @@ import (
 	"text/template"
 
 	"github.com/ssgohq/ssgo/internal/dbparser"
-	"github.com/ssgohq/ssgo/tool/internal/generator/naming"
+	"github.com/ssgohq/ssgo/internal/util/naming"
 )
 
 // modelData holds data for model template rendering

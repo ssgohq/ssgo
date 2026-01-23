@@ -191,6 +191,7 @@ func (s *Scaffold) buildData() *ScaffoldData {
 		Service:      s.opts.Service,
 		ServiceLower: s.opts.ServiceLower,
 		TypesModule:  s.opts.GetTypesModule(),
+		UseTypes:     s.opts.UseTypes,
 		GoVersion:    goVersion,
 		WithTrace:    s.opts.WithTrace,
 		WithRedis:    s.opts.WithRedis,

@@ -155,7 +155,12 @@ func (w *KitexWrapper) cleanupKitexScaffold() {
 	filesToRemove := []string{
 		filepath.Join(w.outputDir, "handler.go"),
 		filepath.Join(w.outputDir, "main.go"),
-		filepath.Join(w.outputDir, "go.mod"), // Remove kitex's go.mod, we generate our own with dependencies
+	}
+
+	// Only remove go.mod when generating full service (with -service flag)
+	// When generating model only (no -service), keep kitex's go.mod
+	if w.service != "" {
+		filesToRemove = append(filesToRemove, filepath.Join(w.outputDir, "go.mod"))
 	}
 
 	for _, f := range filesToRemove {

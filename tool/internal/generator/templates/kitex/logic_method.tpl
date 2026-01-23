@@ -8,7 +8,7 @@ import (
 {{- end }}
 
 	"{{.Module}}/internal/svc"
-	"{{.TypesModule}}/kitex_gen/{{.ServiceLower}}"
+	"{{.TypesImport}}"
 )
 
 // {{.MethodName}}Logic contains the business logic for {{.MethodName}}
