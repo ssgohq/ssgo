@@ -15,7 +15,9 @@ import (
 func Execute(ctx *cmdctx.Context) error {
 	// Check evans is installed
 	if _, err := exec.LookPath("evans"); err != nil {
-		return fmt.Errorf("evans not found. Install with:\n  go install github.com/ktr0731/evans@latest\n  # or: brew install evans")
+		return fmt.Errorf(
+			"evans not found. Install with:\n  go install github.com/ktr0731/evans@latest\n  # or: brew install evans",
+		)
 	}
 
 	// Detect services from .ss.yaml
@@ -63,7 +65,7 @@ func runEvans(svc *GrpcService, userArgs []string, debug bool) error {
 	// Proto files are in subdirectories like proto/proto/package/*.proto
 	// Import statement is "package/file.proto"
 	// So we need import path = proto/proto (parent of package dir)
-	
+
 	// Collect all unique parent directories of proto files
 	parentDirs := make(map[string]bool)
 	for _, proto := range svc.ProtoFiles {
@@ -73,7 +75,7 @@ func runEvans(svc *GrpcService, userArgs []string, debug bool) error {
 		parent := filepath.Dir(dir)
 		parentDirs[parent] = true
 	}
-	
+
 	// Add import paths
 	for dir := range parentDirs {
 		args = append(args, "--path", dir)
@@ -149,7 +151,7 @@ func runFallback(ctx *cmdctx.Context) error {
 	return runEvans(svc, ctx.Args, ctx.Debug)
 }
 
-func parseAddress(addr string) (host string, port string) {
+func parseAddress(addr string) (string, string) {
 	parts := strings.Split(addr, ":")
 	if len(parts) == 2 {
 		return parts[0], parts[1]

@@ -78,7 +78,8 @@ func DetectServices(workDir string) ([]GrpcService, error) {
 }
 
 // DetectProtos finds proto files for a service
-func DetectProtos(serviceDir string, useModules []string) (protos []string, importPaths []string) {
+func DetectProtos(serviceDir string, useModules []string) ([]string, []string) {
+	var protos, importPaths []string
 	protoDirs := []string{"idl", "proto", "protos", "api"}
 
 	// 1. Local protos
@@ -184,22 +185,22 @@ func DetectAddress(serviceDir string) (string, error) {
 // findProtoFiles finds all .proto files in a directory (including subdirectories)
 func findProtoFiles(dir string) []string {
 	var protos []string
-	
+
 	// Direct files
 	if files, _ := filepath.Glob(filepath.Join(dir, "*.proto")); len(files) > 0 {
 		protos = append(protos, files...)
 	}
-	
+
 	// Subdirectories (one level deep)
 	if files, _ := filepath.Glob(filepath.Join(dir, "*", "*.proto")); len(files) > 0 {
 		protos = append(protos, files...)
 	}
-	
+
 	// Two levels deep (common pattern: proto/package/file.proto)
 	if files, _ := filepath.Glob(filepath.Join(dir, "*", "*", "*.proto")); len(files) > 0 {
 		protos = append(protos, files...)
 	}
-	
+
 	return protos
 }
 
