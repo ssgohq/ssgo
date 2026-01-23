@@ -9,7 +9,8 @@ All-in-one Go development toolkit with code generation and runtime utilities.
 - **Database Support**: Generate models and repositories for GORM, Bun, and SQLC
 - **API Development**: Generate Hertz HTTP handlers from API specifications
 - **RPC Services**: Generate Kitex RPC services from Proto definitions
-- **Development Tools**: Hot reload, log aggregation, and process management
+- **Development Tools**: Hot reload, TUI log aggregation, and process management
+- **gRPC REPL**: Interactive gRPC client with auto proto detection (Evans)
 
 ## Installation
 
@@ -37,50 +38,76 @@ Download the latest release from [GitHub Releases](https://github.com/ssgohq/ssg
 
 ## Quick Start
 
-### Check Version
+### Initialize Project
 
 ```bash
-ss version
-```
-
-### Generate API from Specification
-
-```bash
-# Create a new API project
-ss api new myapp
-
-# Generate handlers from .api file
-ss api gen ./idl/api.api
-```
-
-### Generate RPC Service
-
-```bash
-# Generate RPC service from Proto
-ss rpc gen ./idl/service.proto
-
-# Generate a new RPC project
-ss rpc new myservice
-```
-
-### Generate Database Models
-
-```bash
-# Parse database schema and generate GORM models
-ss db parse --dsn "user:pass@tcp(localhost:3306)/mydb" --output ./internal/model --orm gorm
-
-# Generate Bun models
-ss db bun --dsn "postgres://user:pass@localhost:5432/mydb" --output ./internal/model
-
-# Initialize SQLC project
-ss db sqlc init
+# Scan project and generate .ss.yaml config
+ss init
 ```
 
 ### Run Development Server
 
 ```bash
-# Run with hot reload
-ss run ./cmd/main.go
+# Run all services with hot reload and TUI
+ss dev
+
+# Run specific services
+ss dev user-service order-service
+
+# Run without TUI
+ss dev --no-tui
+```
+
+### Generate API from Specification
+
+```bash
+# Create a new API specification
+ss api new user
+
+# Generate Hertz handlers from .api file
+ss api gen --api api/user.api -m github.com/myorg/user-api
+```
+
+### Generate RPC Service
+
+```bash
+# Create a new proto file
+ss rpc new user
+
+# Generate Kitex RPC service
+ss rpc gen --proto idl/user.proto --service UserService -m github.com/myorg/user-rpc
+
+# Generate shared proto models only
+ss rpc model --proto idl/user.proto -m github.com/myorg/common-pb -o common-pb
+```
+
+### Generate Database Models
+
+```bash
+# Generate Bun models from database
+ss db bun gen --dsn "postgres://user:pass@localhost:5432/mydb"
+
+# Generate GORM models
+ss db gorm gen --dsn "postgres://user:pass@localhost:5432/mydb"
+
+# Initialize SQLC project
+ss db sqlc init --dir ./my-service --migrations ../migrations
+```
+
+### Interactive gRPC REPL
+
+```bash
+# Interactive: select service from .ss.yaml, enter Evans REPL
+ss repl
+
+# Enter REPL for specific service
+ss repl user-service
+
+# CLI mode: list services
+ss repl user-service cli list
+
+# CLI mode: call a method
+ss repl user-service cli call UserService.GetUser
 ```
 
 ## Commands
@@ -88,111 +115,47 @@ ss run ./cmd/main.go
 | Command | Description |
 |---------|-------------|
 | `ss version` | Show version information |
-| `ss api new <name>` | Create a new API project |
-| `ss api gen <file>` | Generate API handlers from specification |
-| `ss rpc new <name>` | Create a new RPC service |
-| `ss rpc gen <file>` | Generate RPC service from Proto |
-| `ss db parse` | Parse database schema and generate models |
-| `ss db gorm` | Generate GORM models |
-| `ss db bun` | Generate Bun models |
-| `ss db sqlc` | Generate SQLC configuration and queries |
-| `ss run <main>` | Run application with hot reload |
+| `ss init` | Initialize project config (.ss.yaml) |
+| `ss dev [services...]` | Run services with hot reload |
+| `ss api new <name>` | Create a new API specification |
+| `ss api gen` | Generate API handlers from .api file |
+| `ss api doc` | Generate OpenAPI documentation |
+| `ss rpc new <name>` | Create a new proto file |
+| `ss rpc gen` | Generate RPC service from proto |
+| `ss rpc model` | Generate shared proto models |
+| `ss db bun gen` | Generate Bun models and repositories |
+| `ss db gorm gen` | Generate GORM models and repositories |
+| `ss db sqlc init` | Initialize SQLC configuration |
+| `ss db sqlc gen` | Generate SQLC code |
+| `ss repl [service]` | Interactive gRPC REPL (Evans) |
 
-## SDK Components
+## Configuration
 
-The ssgo SDK provides production-ready components:
+### .ss.yaml
 
-```go
-import (
-    "github.com/ssgohq/ssgo/sdk/app"
-    "github.com/ssgohq/ssgo/sdk/logx"
-    "github.com/ssgohq/ssgo/sdk/metric"
-    "github.com/ssgohq/ssgo/sdk/trace"
-)
+```yaml
+run:
+  build_delay: 500ms
+  kill_delay: 5s
+  services:
+    - name: user-service
+      dir: ./services/user
+      cmd: go run ./cmd/main.go -f etc/config.yaml
+      color: cyan
+      use:
+        - ../common-pb    # shared proto modules
+      watch:
+        include:
+          - "**/*.go"
+          - "**/*.yaml"
+        exclude:
+          - "**/vendor/**"
+          - "**/*_test.go"
+
+    - name: order-service
+      dir: ./services/order
+      cmd: go run ./cmd/main.go -f etc/config.yaml
+      color: green
+      depends_on:
+        - user-service
 ```
-
-### Available Packages
-
-| Package | Description |
-|---------|-------------|
-| `sdk/app` | Application lifecycle management |
-| `sdk/lifecycle` | Service lifecycle and health checks |
-| `sdk/logx` | Structured logging with zap |
-| `sdk/metric` | Prometheus metrics (counter, gauge, histogram) |
-| `sdk/trace` | OpenTelemetry tracing |
-| `sdk/middleware` | HTTP middleware (CORS, JWT, logging) |
-| `sdk/srpc` | RPC client and server utilities |
-| `sdk/stores` | Database connection helpers |
-
-## Project Structure
-
-```
-ssgo/
-├── sdk/                  # Runtime SDK packages
-│   ├── app/             # Application management
-│   ├── lifecycle/       # Service lifecycle
-│   ├── logx/            # Logging
-│   ├── metric/          # Metrics
-│   ├── middleware/      # HTTP middleware
-│   ├── srpc/            # RPC utilities
-│   ├── stores/          # Database connections
-│   └── trace/           # Tracing
-├── tool/                 # CLI tool
-│   ├── cmd/ss/          # Main CLI entry point
-│   └── internal/        # CLI internal packages
-├── internal/             # Shared internal packages
-│   ├── ast/             # AST parsers
-│   └── dbparser/        # Database schema parser
-└── examples/             # Example projects
-```
-
-## Development
-
-### Prerequisites
-
-- Go 1.25+
-- golangci-lint (for linting)
-- goreleaser (for releases)
-
-### Build
-
-```bash
-make build
-```
-
-### Test
-
-```bash
-make test
-```
-
-### Lint
-
-```bash
-make lint
-```
-
-### Install Locally
-
-```bash
-make install
-```
-
-### Clean
-
-```bash
-make clean
-```
-
-## Contributing
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'feat: add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
-## Related Projects
-
-- [Hertz](https://github.com/cloudwego/hertz) - HTTP framework
-- [Kitex](https://github.com/cloudwego/kitex) - RPC framework
