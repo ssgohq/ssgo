@@ -7,7 +7,7 @@ import (
 
 	"{{.Module}}/internal/logic"
 	"{{.Module}}/internal/svc"
-	"{{.TypesImport}}"
+	{{.ServiceLower}} "{{.TypesImport}}"
 )
 
 // {{.Service}}Server implements the {{.Service}} service interface.
