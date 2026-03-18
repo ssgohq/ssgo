@@ -117,6 +117,6 @@ jobs:
           cache: true
 
       - name: Run Gosec Security Scanner
-        uses: securego/gosec@v2.22.11
+        uses: securego/gosec@v2.24.7
         with:
           args: -exclude=G104,G107,G110,G115,G204,G301,G302,G304,G305,G306,G601 ./...
