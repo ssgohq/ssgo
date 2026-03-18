@@ -30,9 +30,10 @@ type Service struct {
 
 // Proto represents parsed proto file
 type Proto struct {
-	Package   string
-	GoPackage string
-	Services  []Service
+	Package      string
+	GoPackage    string // Cleaned package name (after stripping path and alias)
+	RawGoPackage string // Original go_package value from proto (full path with ;alias)
+	Services     []Service
 }
 
 // ParseProto parses a proto file and extracts service information
@@ -63,6 +64,7 @@ func ParseProto(path string) (*Proto, error) {
 		}),
 		proto.WithOption(func(option *proto.Option) {
 			if option.Name == "go_package" {
+				result.RawGoPackage = option.Constant.Source
 				result.GoPackage = option.Constant.Source
 			}
 		}),

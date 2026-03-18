@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"fmt"
-	"path/filepath"
 	"strings"
 
 	"github.com/ssgohq/ssgo/internal/util/log"
@@ -12,82 +11,44 @@ import (
 
 // runGen generates a full Kitex RPC server from a .proto file
 func runGen(ctx *cmdctx.Context) error {
-	// Check for help flag
 	if ctx.GetFlagBool("help") || ctx.GetFlagBool("h") {
 		return printGenHelp()
 	}
 
-	protoFile := ctx.GetFlag("proto")
-	if protoFile == "" {
-		protoFile = ctx.GetFlag("p")
+	opts, err := resolveGenOptions(ctx)
+	if err != nil {
+		return err
 	}
-	if protoFile == "" {
+	if opts == nil {
 		return printGenHelp()
 	}
 
-	service := ctx.GetFlag("service")
-	if service == "" {
-		return fmt.Errorf("--service flag is required")
-	}
-
-	module := ctx.GetFlag("module")
-	if module == "" {
-		module = ctx.GetFlag("m")
-	}
-	if module == "" {
-		return fmt.Errorf("--module or -m flag is required")
-	}
-
-	outputDir := ctx.GetFlag("dir")
-	if outputDir == "" {
-		outputDir = ctx.GetFlag("o")
-	}
-	if outputDir == "" {
-		outputDir = "."
-	}
-
-	useTypes := ctx.GetFlag("use")
-	genPath := ctx.GetFlag("gen-path")
-	withTrace := ctx.GetFlagBool("with-trace")
-	withRedis := ctx.GetFlagBool("with-redis")
-	verbose := ctx.Debug
-
-	// Convert to absolute paths
-	absOutputDir, err := filepath.Abs(outputDir)
-	if err != nil {
-		return fmt.Errorf("failed to get absolute path: %w", err)
-	}
-
-	absProtoFile, err := filepath.Abs(protoFile)
-	if err != nil {
-		return fmt.Errorf("failed to get absolute proto path: %w", err)
-	}
-
-	// Validate service name
-	if !strings.HasSuffix(service, "Service") {
-		log.Warning("Service name '%s' doesn't end with 'Service'. This is a convention in Kitex.", service)
+	// Validate service name convention
+	if !strings.HasSuffix(opts.service, "Service") {
+		log.Warning("Service name '%s' doesn't end with 'Service'. This is a convention in Kitex.", opts.service)
 	}
 
 	log.Info("Generating RPC server from Proto definition...")
-	log.Info("  Proto file: %s", absProtoFile)
-	log.Info("  Output:     %s", absOutputDir)
-	log.Info("  Module:     %s", module)
-	log.Info("  Service:    %s", service)
+	log.Info("  Proto file: %s", opts.absProtoFile)
+	log.Info("  Output:     %s", opts.absOutputDir)
+	log.Info("  Module:     %s", opts.module)
+	log.Info("  Service:    %s", opts.service)
+	if opts.useTypes != "" {
+		log.Info("  Use types:  %s", opts.useTypes)
+	}
 
-	// Create generator
 	g := gen.NewGenerator(gen.Options{
-		ProtoFile: absProtoFile,
-		OutputDir: absOutputDir,
-		Module:    module,
-		Service:   service,
-		Verbose:   verbose,
-		UseTypes:  useTypes,
-		GenPath:   genPath,
-		WithTrace: withTrace,
-		WithRedis: withRedis,
+		ProtoFile: opts.absProtoFile,
+		OutputDir: opts.absOutputDir,
+		Module:    opts.module,
+		Service:   opts.service,
+		Verbose:   ctx.Debug,
+		UseTypes:  opts.useTypes,
+		GenPath:   opts.genPath,
+		WithTrace: opts.withTrace,
+		WithRedis: opts.withRedis,
 	})
 
-	// Run generation
 	if err := g.Generate(); err != nil {
 		return fmt.Errorf("generation failed: %w", err)
 	}
@@ -100,22 +61,32 @@ func printGenHelp() error {
 	fmt.Println(`ss rpc gen - Generate Kitex RPC server from .proto file
 
 Usage:
-	 ss rpc gen --proto <file> --service <name> -m <module> [options]
+	 ss rpc gen -p <file> [options]
 
 Options:
 	 -p, --proto <file>     Path to .proto file (required)
-	     --service <name>   Service name in proto file (required)
-	 -m, --module <name>    Go module name (required)
+	     --service <name>   Service name (auto-detected from proto if single service)
+	 -m, --module <name>    Go module name (auto-detected from go.mod in output dir)
 	 -o, --dir <dir>        Output directory (default: .)
-	     --use <module>     Use external types module (kitex_gen)
+	     --use <module>     Use external types module (auto-derived from proto go_package)
 	     --gen-path <path>  Path for generated kitex_gen
 	     --with-trace       Enable OpenTelemetry tracing
 	     --with-redis       Enable Redis integration
 	 -h, --help             Show this help
 
+Auto-detection:
+	 --service  Extracted from proto file (if exactly one service defined)
+	 -m         Read from go.mod in the output directory (if exists)
+	 --use      Derived from proto's go_package option (if full import path)
+
 Examples:
-	 ss rpc gen --proto idl/user.proto --service UserService -m github.com/org/user-rpc
-	 ss rpc gen --proto idl/user.proto --service UserService -m github.com/org/user-rpc --use github.com/org/common-pb
-	 ss rpc gen --proto idl/user.proto --service UserService -m github.com/org/user-rpc --with-trace`)
+	 # Minimal (auto-detect service, module, and --use):
+	 ss rpc gen -p proto/auth.proto -o my-auth-svc
+
+	 # Explicit (override auto-detection):
+	 ss rpc gen -p proto/auth.proto --service AuthService -m github.com/org/auth-rpc
+
+	 # With shared types module:
+	 ss rpc gen -p shared-proto/proto/user.proto -o user-svc --with-trace`)
 	return nil
 }
