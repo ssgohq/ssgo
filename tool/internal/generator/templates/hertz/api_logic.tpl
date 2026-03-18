@@ -7,7 +7,7 @@ import (
 	"github.com/ssgohq/goten-core/logx"
 	"{{.Module}}/internal/pkg/httputil"
 	"{{.Module}}/internal/svc"
-	"{{.Module}}/internal/types"
+	"{{.Module}}/internal/api/types"
 {{if .HasRPCClients}}	// Import RPC types
 	// "MODULE/kitex_gen/PACKAGE"
 {{end}})

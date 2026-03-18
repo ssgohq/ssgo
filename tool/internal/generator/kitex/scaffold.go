@@ -10,6 +10,7 @@ import (
 	"text/template"
 
 	"github.com/ssgohq/ssgo/internal/util/naming"
+	"github.com/ssgohq/ssgo/tool/internal/generator/service"
 	"github.com/ssgohq/ssgo/tool/internal/generator/templates"
 )
 
@@ -45,6 +46,12 @@ func (o *ScaffoldOptions) GetTypesModule() string {
 }
 
 // Scaffold generates scaffold files with ServiceContext pattern.
+// Output uses namespaced layout:
+//   - cmd/rpc/main.go
+//   - internal/rpc/server/, internal/rpc/logic/
+//   - internal/config/rpc.go  (RPC-specific config, extends base.go)
+//   - internal/svc/rpc.go     (RPC-specific svc, embeds base.go)
+//   - etc/rpc.yaml
 type Scaffold struct {
 	opts      ScaffoldOptions
 	proto     *Proto // Parsed proto file
@@ -78,7 +85,18 @@ func NewScaffold(opts ScaffoldOptions) *Scaffold {
 
 // Generate generates all scaffold files.
 func (s *Scaffold) Generate() error {
-	// Parse proto file to extract RPC methods
+	// 1. Run shared scaffold first to ensure base files exist.
+	sc := service.NewSharedScaffold(service.ScaffoldOptions{
+		OutputDir: s.opts.OutputDir,
+		Module:    s.opts.Module,
+		Verbose:   s.opts.Verbose,
+		SkipGoMod: true, // go.mod managed by go_mod.tpl below
+	})
+	if err := sc.Generate(); err != nil {
+		return fmt.Errorf("shared scaffold failed: %w", err)
+	}
+
+	// 2. Parse proto file to extract RPC methods.
 	if s.opts.ProtoFile != "" {
 		proto, err := ParseProto(s.opts.ProtoFile)
 		if err != nil {
@@ -91,15 +109,15 @@ func (s *Scaffold) Generate() error {
 		}
 	}
 
-	// Build template data
+	// 3. Build template data.
 	data := s.buildData()
 
-	// Create directories
+	// 4. Create directories (namespaced under rpc/).
 	dirs := []string{
-		"cmd",
+		"cmd/rpc",
 		"internal/config",
-		"internal/logic",
-		"internal/server",
+		"internal/rpc/logic",
+		"internal/rpc/server",
 		"internal/svc",
 		"etc",
 	}
@@ -109,16 +127,16 @@ func (s *Scaffold) Generate() error {
 		}
 	}
 
-	// Generate static files
+	// 5. Generate static files (skip-if-exists for user-editable files).
 	staticFiles := []struct {
 		tpl          string
 		output       string
 		skipIfExists bool
 	}{
-		{"svc.tpl", "internal/svc/service_context.go", true},
-		{"config.tpl", "internal/config/config.go", true},
-		{"config_yaml.tpl", "etc/config.yaml", true},
-		{"main.tpl", "cmd/main.go", true},
+		{"svc.tpl", "internal/svc/rpc.go", true},
+		{"config.tpl", "internal/config/rpc.go", true},
+		{"config_yaml.tpl", "etc/rpc.yaml", true},
+		{"main.tpl", "cmd/rpc/main.go", true},
 		{"go_mod.tpl", "go.mod", false}, // Always regenerate to ensure correct dependencies
 	}
 
@@ -141,8 +159,8 @@ func (s *Scaffold) Generate() error {
 		}
 	}
 
-	// Generate server file (always regenerate)
-	serverFile := fmt.Sprintf("internal/server/%s_server.go", naming.ToSnakeCase(data.ServiceLower))
+	// 6. Generate server file under internal/rpc/server/ (always regenerate).
+	serverFile := fmt.Sprintf("internal/rpc/server/%s_server.go", naming.ToSnakeCase(data.ServiceLower))
 	serverPath := filepath.Join(s.opts.OutputDir, serverFile)
 	if err := s.renderToFile("server.tpl", serverPath, data); err != nil {
 		return fmt.Errorf("failed to generate server: %w", err)
@@ -151,10 +169,10 @@ func (s *Scaffold) Generate() error {
 		fmt.Printf("    [gen] %s\n", serverFile)
 	}
 
-	// Generate logic files (one per method, skip if exists)
+	// 7. Generate logic files under internal/rpc/logic/ (one per method, skip if exists).
 	for _, method := range data.Methods {
 		methodData := data.WithMethod(&method)
-		logicFile := fmt.Sprintf("internal/logic/%s_logic.go", naming.ToSnakeCase(method.Name))
+		logicFile := fmt.Sprintf("internal/rpc/logic/%s_logic.go", naming.ToSnakeCase(method.Name))
 		logicPath := filepath.Join(s.opts.OutputDir, logicFile)
 
 		// Skip if exists

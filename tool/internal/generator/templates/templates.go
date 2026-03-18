@@ -11,3 +11,9 @@ var HertzTemplates embed.FS
 
 //go:embed kitex/*.tpl
 var KitexTemplates embed.FS
+
+//go:embed service/*.tpl
+var ServiceTemplates embed.FS
+
+//go:embed composer/*.tpl
+var ComposerTemplates embed.FS

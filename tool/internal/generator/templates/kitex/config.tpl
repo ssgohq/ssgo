@@ -10,7 +10,10 @@ import (
 {{- end}}
 )
 
-type Config struct {
+// RPCConfig holds Kitex RPC transport configuration.
+// It embeds BaseConfig for shared fields (Name, Log, Trace, Metric).
+type RPCConfig struct {
+	BaseConfig    `yaml:",inline"`
 	srpc.ServerConfig `yaml:",inline"`
 	Metric            metric.Config `yaml:"metric,omitempty"`
 {{- if .WithRedis}}
@@ -22,6 +25,9 @@ type Config struct {
 	// Redis    redis.Config    `yaml:"redis,omitempty"`
 }
 
-func (c Config) IsTraceEnabled() bool {
+func (c RPCConfig) IsTraceEnabled() bool {
 	return c.Trace.IsEnabled()
 }
+
+// Config is an alias for RPCConfig for backward compatibility.
+type Config = RPCConfig

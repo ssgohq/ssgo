@@ -15,6 +15,7 @@ import (
 	dbcmd "github.com/ssgohq/ssgo/tool/internal/cmd/db"
 	replcmd "github.com/ssgohq/ssgo/tool/internal/cmd/repl"
 	rpccmd "github.com/ssgohq/ssgo/tool/internal/cmd/rpc"
+	servicecmd "github.com/ssgohq/ssgo/tool/internal/cmd/service"
 	"github.com/ssgohq/ssgo/tool/internal/cmdctx"
 	"github.com/ssgohq/ssgo/tool/internal/runner"
 )
@@ -79,6 +80,7 @@ func init() {
 	rootCmd.AddCommand(apiCmd)
 	rootCmd.AddCommand(rpcCmd)
 	rootCmd.AddCommand(dbCmd)
+	rootCmd.AddCommand(serviceCmd)
 	rootCmd.AddCommand(initCmd)
 	rootCmd.AddCommand(devCmd)
 	rootCmd.AddCommand(replCmd)
@@ -236,6 +238,30 @@ func init() {
 	devCmd.Flags().BoolVar(&devNoWatch, "no-watch", false, "disable file watching")
 	devCmd.Flags().BoolVar(&devNoBuild, "no-build", false, "skip build step")
 	devCmd.Flags().BoolVar(&devNoTUI, "no-tui", false, "disable TUI, use plain output")
+}
+
+// serviceCmd wraps the service command group (inspect/plan/gen/sync)
+var serviceCmd = &cobra.Command{
+	Use:   "service",
+	Short: "Orchestrate hybrid API+RPC service generation",
+	Long: `Scan, plan, generate and sync hybrid API+RPC services.
+
+Subcommands:
+  inspect   Show detected contracts and service state
+  plan      Print generation plan (dry-run, deterministic)
+  gen       Apply generation plan to a service directory
+  sync      Regenerate from manifest with ownership-aware tidy
+
+Examples:
+  ss service inspect ./my-service
+  ss service plan    ./my-service --json
+  ss service gen     ./my-service --dry-run
+  ss service sync    ./my-service`,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		ctx := createContext(args)
+		return servicecmd.Execute(ctx)
+	},
+	DisableFlagParsing: true,
 }
 
 // replCmd wraps the repl command

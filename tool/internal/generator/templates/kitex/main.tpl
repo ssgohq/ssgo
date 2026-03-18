@@ -15,19 +15,19 @@ import (
 	_ "github.com/cloudwego/kitex/pkg/remote/codec/protobuf/encoding/gzip" // Register gzip compressor for gRPC clients
 
 	"{{.Module}}/internal/config"
-	svrImpl "{{.Module}}/internal/server"
+	svrImpl "{{.Module}}/internal/rpc/server"
 	"{{.Module}}/internal/svc"
 	"{{.ServiceImport}}"
 )
 
-var configFile = flag.String("c", "etc/config.yaml", "config file")
+var configFile = flag.String("c", "etc/rpc.yaml", "config file")
 
 func main() {
 	flag.Parse()
 	defer app.WithLogger("{{.ServiceLower}}")()
 
 	cfg := mustLoadConfig(*configFile)
-	svcCtx, err := svc.NewServiceContext(cfg)
+	svcCtx, err := svc.NewRPCServiceContext(cfg)
 	if err != nil {
 		panic(fmt.Sprintf("failed to create service context: %v", err))
 	}
@@ -63,8 +63,8 @@ func main() {
 		MustRun(context.Background())
 }
 
-func mustLoadConfig(path string) config.Config {
-	var c config.Config
+func mustLoadConfig(path string) config.RPCConfig {
+	var c config.RPCConfig
 	data, err := os.ReadFile(path)
 	if err != nil {
 		panic(fmt.Sprintf("failed to read config file: %v", err))

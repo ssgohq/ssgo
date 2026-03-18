@@ -12,12 +12,12 @@ import (
 	"github.com/ssgohq/goten-core/metric"
 	"gopkg.in/yaml.v3"
 
+	"{{.Module}}/internal/api/handler"
 	"{{.Module}}/internal/config"
-	"{{.Module}}/internal/handler"
 	"{{.Module}}/internal/svc"
 )
 
-var configFile = flag.String("c", "etc/config.yaml", "config file")
+var configFile = flag.String("c", "etc/api.yaml", "config file")
 
 func main() {
 	flag.Parse()

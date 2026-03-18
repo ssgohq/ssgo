@@ -5,12 +5,9 @@ package config
 import (
 	"fmt"
 
-	"github.com/ssgohq/goten-core/logx"
-	"github.com/ssgohq/goten-core/metric"
 {{- if .HasRPCClients}}
 	"github.com/ssgohq/goten-core/srpc"
 {{- end}}
-	"github.com/ssgohq/goten-core/trace"
 {{- if .WithRedis}}
 	"github.com/ssgohq/goten-core/stores/redis"
 {{- end}}
@@ -31,13 +28,12 @@ func (c DBConfig) IsEnabled() bool {
 	return c.Host != "" && c.Database != ""
 }
 {{end}}
-type Config struct {
-	Name   string              `yaml:"name"`
-	Host   string              `yaml:"host,omitempty"`
-	Port   int                 `yaml:"port,omitempty"`
-	Log    logx.Config         `yaml:"log,omitempty"`
-	Trace  trace.Config        `yaml:"trace,omitempty"`
-	Metric metric.Config `yaml:"metric,omitempty"`
+// APIConfig holds HTTP API transport configuration.
+// It embeds BaseConfig for shared fields (Name, Log, Trace, Metric).
+type APIConfig struct {
+	BaseConfig `yaml:",inline"`
+	Host       string `yaml:"host,omitempty"`
+	Port       int    `yaml:"port,omitempty"`
 {{range .RPCClients}}
 	// {{.Name}}Rpc is the RPC client configuration for {{.ServiceName}} service
 	{{.Name}}Rpc srpc.ClientConfig `yaml:"{{.Name}}Rpc"`
@@ -50,21 +46,11 @@ type Config struct {
 {{end}}
 	// Auth configuration (optional)
 	Auth AuthConfig `yaml:"auth,omitempty"`
-{{- if not .WithDB}}{{if not .WithRedis}}{{if not .HasRPCClients}}
-	// Add your config here:
-	// DB       DBConfig        `yaml:"db,omitempty"`
-	// Redis    redis.Config    `yaml:"redis,omitempty"`
-{{end}}{{end}}{{end}}
 }
 
 // Addr returns the server address
-func (c Config) Addr() string {
+func (c APIConfig) Addr() string {
 	return fmt.Sprintf("%s:%d", c.Host, c.Port)
-}
-
-// IsTraceEnabled returns true if tracing is enabled
-func (c Config) IsTraceEnabled() bool {
-	return c.Trace.IsEnabled()
 }
 
 // AuthConfig holds authentication configuration
@@ -73,3 +59,6 @@ type AuthConfig struct {
 	JWTExpire   int64  `yaml:"jwtExpire,omitempty"`
 	TokenHeader string `yaml:"tokenHeader,omitempty"`
 }
+
+// Config is an alias for APIConfig for backward compatibility with generated handlers.
+type Config = APIConfig

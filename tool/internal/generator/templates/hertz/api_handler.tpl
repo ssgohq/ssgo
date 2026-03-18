@@ -9,10 +9,10 @@ import (
 {{end}}
 	"github.com/cloudwego/hertz/pkg/app"
 	"github.com/cloudwego/hertz/pkg/protocol/consts"
-	"{{.Module}}/internal/logic/{{.Group}}"
+	"{{.Module}}/internal/api/logic/{{.Group}}"
 	"{{.Module}}/internal/pkg/httputil"
 	"{{.Module}}/internal/svc"
-	"{{.Module}}/internal/types"
+	"{{.Module}}/internal/api/types"
 )
 
 // {{.HandlerName}} handles {{.Method}} {{.Path}}
@@ -30,7 +30,7 @@ import (
 func {{.HandlerName}}(svcCtx *svc.ServiceContext) app.HandlerFunc {
 	return func(ctx context.Context, c *app.RequestContext) {
 {{if .HasRequest}}		var req types.{{.RequestType}}
-		
+
 {{if .HasPathParams}}		// Extract {{.PathParamName}} from path parameter
 		{{.PathParamName}}Str := c.Param("{{.PathParamName}}")
 		if {{.PathParamName}}Str == "" {
