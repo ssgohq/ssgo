@@ -8,7 +8,7 @@ require (
 	github.com/bmatcuk/doublestar/v4 v4.9.2
 	github.com/charmbracelet/lipgloss v1.1.0
 	github.com/emicklei/proto v1.14.2
-	github.com/fatih/color v1.14.1
+	github.com/fatih/color v1.18.0
 	github.com/fsnotify/fsnotify v1.7.0
 	github.com/go-sql-driver/mysql v1.9.3
 	github.com/jackc/pgx/v5 v5.8.0
