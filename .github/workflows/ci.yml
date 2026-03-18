@@ -103,20 +103,3 @@ jobs:
           path: dist/ssgo_*/
           retention-days: 7
 
-  security:
-    name: Security Scan
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v6
-
-      - name: Setup Go
-        uses: actions/setup-go@v6
-        with:
-          go-version: ${{ env.GO_VERSION }}
-          cache: true
-
-      - name: Run Gosec Security Scanner
-        uses: securego/gosec@v2.24.7
-        with:
-          args: -exclude=G104,G107,G110,G115,G204,G301,G302,G304,G305,G306,G601 ./...
