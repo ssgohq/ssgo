@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"path/filepath"
 	"strconv"
 
 	ast "github.com/ssgohq/ssgo/internal/ast/api"
@@ -13,17 +14,38 @@ import (
 )
 
 func runGen(ctx *cmdctx.Context) error {
-	// Check for help flag
 	if ctx.GetFlagBool("help") || ctx.GetFlagBool("h") {
 		return printGenHelp()
 	}
 
+	// Explicit CLI invocation (--api flag provided) — single-file mode
+	if ctx.GetFlag("api") != "" || ctx.GetFlag("a") != "" {
+		return runGenSingle(ctx)
+	}
+
+	// Fall back to .ss.yaml zero-flag batch mode
+	cfg, err := LoadApiConfig(ctx.WorkingDir)
+	if err != nil {
+		return fmt.Errorf("failed to load .ss.yaml: %w", err)
+	}
+	if cfg.IsEmpty() {
+		return printGenHelp()
+	}
+
+	// Optional positional arg: filter by api file basename
+	serviceFilter := ""
+	if len(ctx.Args) > 0 {
+		serviceFilter = ctx.Args[0]
+	}
+
+	return runGenFromConfig(ctx, cfg, serviceFilter)
+}
+
+// runGenSingle generates a single API server from explicit CLI flags.
+func runGenSingle(ctx *cmdctx.Context) error {
 	apiFile := ctx.GetFlag("api")
 	if apiFile == "" {
 		apiFile = ctx.GetFlag("a")
-	}
-	if apiFile == "" {
-		return printGenHelp()
 	}
 
 	outputDir := ctx.GetFlag("dir")
@@ -60,31 +82,56 @@ func runGen(ctx *cmdctx.Context) error {
 		}
 	}
 
+	return executeGen(apiFile, outputDir, module, port, withLogic)
+}
+
+// runGenFromConfig generates API servers for services declared in .ss.yaml.
+func runGenFromConfig(ctx *cmdctx.Context, cfg *ApiConfig, serviceFilter string) error {
+	for _, svc := range cfg.Apis {
+		// Apply optional filter by api file basename
+		if serviceFilter != "" {
+			base := filepath.Base(svc.File)
+			if base != serviceFilter && svc.File != serviceFilter {
+				continue
+			}
+		}
+
+		resolved, err := ResolveApiConfig(ctx, svc)
+		if err != nil {
+			return fmt.Errorf("api %s: %w", svc.File, err)
+		}
+
+		log.Info("--- Generating API: %s ---", svc.File)
+		if err := executeGen(resolved.ApiFile, resolved.OutputDir, resolved.Module, resolved.Port, resolved.WithLogic); err != nil {
+			return fmt.Errorf("api %s: %w", svc.File, err)
+		}
+	}
+	return nil
+}
+
+// executeGen runs the parse→spec→generate flow for one API service.
+func executeGen(apiFile, outputDir, module string, port int, withLogic bool) error {
 	log.Info("Generating API server from API definition...")
 	log.Info("  API file:   %s", apiFile)
 	log.Info("  Output:     %s", outputDir)
 	log.Info("  Module:     %s", module)
 	log.Info("  With Logic: %v", withLogic)
 
-	// 1. Parse the .api file
 	apiSpec, err := ast.Parse(apiFile)
 	if err != nil {
 		return fmt.Errorf("failed to parse .api file: %w", err)
 	}
 
-	// Resolve imports if any
 	apiSpec, err = ast.ResolveImports(apiSpec)
 	if err != nil {
 		return fmt.Errorf("failed to resolve imports: %w", err)
 	}
 
-	// 2. Convert to spec
 	serviceSpec, err := spec.FromAST(apiSpec)
 	if err != nil {
 		return fmt.Errorf("failed to convert to spec: %w", err)
 	}
 
-	// 3. Generate code
 	generator := hertz.NewAPIGenerator(serviceSpec, hertz.APIOptions{
 		Options: hertz.Options{
 			Output: outputDir,
@@ -113,19 +160,36 @@ func printGenHelp() error {
 	fmt.Println(`ss api gen - Generate Hertz code from .api file
 
 Usage:
-	 ss api gen --api <file> [options]
+  ss api gen --api <file> [options]
+  ss api gen [file-basename]    (zero-flag mode — reads from .ss.yaml api section)
 
 Options:
-	 -a, --api <file>      Path to .api file (required)
-	 -o, --dir <dir>       Output directory (default: .)
-	 -m, --module <name>   Go module name (auto-detected from go.mod)
-	     --port <number>   Server port (default: 8080)
-	     --with-logic      Generate logic files (default: true)
-	 -h, --help            Show this help
+  -a, --api <file>      Path to .api file (required when not using .ss.yaml)
+  -o, --dir <dir>       Output directory (default: .)
+  -m, --module <name>   Go module name (auto-detected from go.mod)
+      --port <number>   Server port (default: 8080)
+      --with-logic      Generate logic files (default: true)
+  -h, --help            Show this help
+
+.ss.yaml api section (zero-flag mode):
+  api:
+    apis:
+      - file: api/user.api
+        dir: .
+        options:
+          port: 8080
+          with_logic: true
+          format: json
 
 Examples:
-	 ss api gen --api api/user.api
-	 ss api gen --api api/user.api -m github.com/org/user-api
-	 ss api gen --api api/user.api -o ./output --port 9000`)
+  ss api gen --api api/user.api
+  ss api gen --api api/user.api -m github.com/org/user-api
+  ss api gen --api api/user.api -o ./output --port 9000
+
+  # Zero-flag (reads .ss.yaml):
+  ss api gen
+
+  # Zero-flag (specific api file from .ss.yaml):
+  ss api gen user.api`)
 	return nil
 }

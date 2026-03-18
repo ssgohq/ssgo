@@ -52,7 +52,7 @@ func Complete(ctx *cmdctx.Context) {
 	}
 }
 
-func completeFlags(ctx *cmdctx.Context, flags []string) {
+func completeFlags(_ *cmdctx.Context, flags []string) {
 	for _, flag := range flags {
 		fmt.Println(flag)
 	}
@@ -63,6 +63,7 @@ func printHelp() error {
 
 Usage:
   ss api <command> [flags]
+  ss api <command>              (zero-flag mode — reads from .ss.yaml api section)
 
 Commands:
   new     Create a new .api file template
@@ -70,10 +71,25 @@ Commands:
   logic   Generate only logic files
   doc     Generate OpenAPI documentation
 
+.ss.yaml api section (zero-flag mode):
+  api:
+    apis:
+      - file: api/user.api
+        dir: .
+        options:
+          port: 8080
+          with_logic: true
+          format: json
+
 Examples:
   ss api new user
   ss api gen --api api/user.api -m github.com/org/user-api
   ss api logic --api api/user.api -m github.com/org/user-api
-  ss api doc --api api/user.api --format yaml`)
+  ss api doc --api api/user.api --format yaml
+
+  # Zero-flag mode (reads .ss.yaml):
+  ss api gen
+  ss api doc
+  ss api logic`)
 	return nil
 }
