@@ -156,45 +156,36 @@ func (g *RepoGenerator) generateRepository(module, entityName string, queries []
 	// Imports
 	buf.WriteString("import (\n")
 	buf.WriteString("\t\"context\"\n\n")
-	buf.WriteString(fmt.Sprintf("\t\"%s/internal/data/db\"\n", module))
-	buf.WriteString(fmt.Sprintf("\t\"%s/internal/store\"\n", module))
+	fmt.Fprintf(&buf, "\t\"%s/internal/data/db\"\n", module)
+	fmt.Fprintf(&buf, "\t\"%s/internal/store\"\n", module)
 	if g.opts.WithTrace {
 		buf.WriteString("\n\t\"go.opentelemetry.io/otel\"\n")
 	}
 	buf.WriteString(")\n\n")
 
 	// Interface
-	buf.WriteString(
-		fmt.Sprintf(
-			"// %sRepository defines the interface for %s data access\n",
-			entityName,
-			lowerEntity,
-		),
+	fmt.Fprintf(
+		&buf,
+		"// %sRepository defines the interface for %s data access\n",
+		entityName,
+		lowerEntity,
 	)
-	buf.WriteString(fmt.Sprintf("type %sRepository interface {\n", entityName))
+	fmt.Fprintf(&buf, "type %sRepository interface {\n", entityName)
 	for _, q := range queries {
 		sig := g.buildMethodSignature(q)
-		buf.WriteString(fmt.Sprintf("\t%s\n", sig))
+		fmt.Fprintf(&buf, "\t%s\n", sig)
 	}
 	buf.WriteString("}\n\n")
 
 	// Struct
-	buf.WriteString(fmt.Sprintf("type %sRepository struct {\n", lowerEntity))
+	fmt.Fprintf(&buf, "type %sRepository struct {\n", lowerEntity)
 	buf.WriteString("\tstore *store.Store\n")
 	buf.WriteString("}\n\n")
 
 	// Constructor
-	buf.WriteString(
-		fmt.Sprintf("// New%sRepository creates a new %s repository\n", entityName, lowerEntity),
-	)
-	buf.WriteString(
-		fmt.Sprintf(
-			"func New%sRepository(store *store.Store) %sRepository {\n",
-			entityName,
-			entityName,
-		),
-	)
-	buf.WriteString(fmt.Sprintf("\treturn &%sRepository{\n", lowerEntity))
+	fmt.Fprintf(&buf, "// New%sRepository creates a new %s repository\n", entityName, lowerEntity)
+	fmt.Fprintf(&buf, "func New%sRepository(store *store.Store) %sRepository {\n", entityName, entityName)
+	fmt.Fprintf(&buf, "\treturn &%sRepository{\n", lowerEntity)
 	buf.WriteString("\t\tstore: store,\n")
 	buf.WriteString("\t}\n")
 	buf.WriteString("}\n\n")
@@ -258,16 +249,12 @@ func (g *RepoGenerator) generateMethod(lowerEntity, entityName string, q common.
 	}
 
 	// Method signature
-	buf.WriteString(
-		fmt.Sprintf("func (r *%sRepository) %s(%s) %s {\n", lowerEntity, q.Name, params, returns),
-	)
+	fmt.Fprintf(&buf, "func (r *%sRepository) %s(%s) %s {\n", lowerEntity, q.Name, params, returns)
 
 	// Add tracing if enabled
 	if g.opts.WithTrace {
 		tracerName := fmt.Sprintf("%sRepository", lowerEntity)
-		buf.WriteString(
-			fmt.Sprintf("\tctx, span := otel.Tracer(%q).Start(ctx, %q)\n", tracerName, q.Name),
-		)
+		fmt.Fprintf(&buf, "\tctx, span := otel.Tracer(%q).Start(ctx, %q)\n", tracerName, q.Name)
 		buf.WriteString("\tdefer span.End()\n\n")
 	}
 
@@ -280,7 +267,7 @@ func (g *RepoGenerator) generateMethod(lowerEntity, entityName string, q common.
 	argsStr := strings.Join(callArgs, ", ")
 
 	// Call the SQLC query
-	buf.WriteString(fmt.Sprintf("\treturn r.store.Queries().%s(%s)\n", q.Name, argsStr))
+	fmt.Fprintf(&buf, "\treturn r.store.Queries().%s(%s)\n", q.Name, argsStr)
 
 	buf.WriteString("}\n")
 	return buf.String()

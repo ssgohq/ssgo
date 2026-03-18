@@ -133,7 +133,7 @@ func (u *SvcContextUpdater) formatAndWrite(path, content string) error {
 		formatted = []byte(content)
 	}
 
-	if err := os.WriteFile(path, formatted, 0o644); err != nil {
+	if err := safeWriteFile(u.outputDir, path, formatted, 0o644); err != nil {
 		return fmt.Errorf("failed to write ServiceContext: %w", err)
 	}
 
@@ -550,7 +550,7 @@ func (u *SvcContextUpdater) UpdateMainGo() error {
 		formatted = []byte(contentStr)
 	}
 
-	if err := os.WriteFile(mainPath, formatted, 0o644); err != nil {
+	if err := safeWriteFile(u.outputDir, mainPath, formatted, 0o644); err != nil {
 		return fmt.Errorf("failed to write main.go: %w", err)
 	}
 

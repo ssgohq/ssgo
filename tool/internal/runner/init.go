@@ -34,7 +34,11 @@ func InitConfig(workDir string) error {
 	runConfig := buildRunConfig(services)
 
 	// Check for existing .ss.yaml
-	configPath := filepath.Join(workDir, ".ss.yaml")
+	// Validate configPath is within workDir to prevent path traversal
+	configPath, err := safeJoin(workDir, ".ss.yaml")
+	if err != nil {
+		return err
+	}
 
 	if _, err := os.Stat(configPath); err == nil {
 		// File exists - append/update run section only
@@ -122,6 +126,7 @@ func updateRunSection(configPath string, runConfig map[string]interface{}) error
 		content = strings.TrimSuffix(content, "\n") + "\n\n" + string(runYAML)
 	}
 
+	// #nosec G703 -- configPath validated by safeJoin in InitConfig before being passed here
 	if err := os.WriteFile(configPath, []byte(content), 0o644); err != nil {
 		return fmt.Errorf("failed to write .ss.yaml: %w", err)
 	}
@@ -244,6 +249,18 @@ func hasMainGo(dir string) bool {
 	}
 
 	return false
+}
+
+// safeJoin constructs a path from baseDir and elem, and validates that the result
+// is within baseDir to prevent path traversal attacks.
+func safeJoin(baseDir, elem string) (string, error) {
+	cleanBase := filepath.Clean(baseDir)
+	joined := filepath.Join(cleanBase, elem)
+	cleanJoined := filepath.Clean(joined)
+	if !strings.HasPrefix(cleanJoined, cleanBase+string(filepath.Separator)) {
+		return "", fmt.Errorf("path %q escapes base directory %q", elem, baseDir)
+	}
+	return cleanJoined, nil
 }
 
 // buildRunConfig creates the run configuration map.
