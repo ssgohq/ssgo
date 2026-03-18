@@ -156,20 +156,19 @@ func (g *RepoGenerator) generateRepository(module, entityName string, queries []
 	// Imports
 	buf.WriteString("import (\n")
 	buf.WriteString("\t\"context\"\n\n")
-	buf.WriteString(fmt.Sprintf("\t\"%s/internal/data/db\"\n", module))
-	buf.WriteString(fmt.Sprintf("\t\"%s/internal/store\"\n", module))
+	fmt.Fprintf(&buf, "\t\"%s/internal/data/db\"\n", module)
+	fmt.Fprintf(&buf, "\t\"%s/internal/store\"\n", module)
 	if g.opts.WithTrace {
 		buf.WriteString("\n\t\"go.opentelemetry.io/otel\"\n")
 	}
 	buf.WriteString(")\n\n")
 
 	// Interface
-	buf.WriteString(
-		fmt.Sprintf(
-			"// %sRepository defines the interface for %s data access\n",
-			entityName,
-			lowerEntity,
-		),
+	fmt.Fprintf(
+		&buf,
+		"// %sRepository defines the interface for %s data access\n",
+		entityName,
+		lowerEntity,
 	)
 	buf.WriteString(fmt.Sprintf("type %sRepository interface {\n", entityName))
 	for _, q := range queries {

@@ -82,7 +82,8 @@ type DBConfig struct {
 		formatted = []byte(newContent)
 	}
 
-	if err := os.WriteFile(configPath, formatted, 0o644); err != nil {
+	cleanPath := filepath.Clean(configPath)
+	if err := os.WriteFile(cleanPath, formatted, 0o644); err != nil {
 		return fmt.Errorf("failed to write config.go: %w", err)
 	}
 
@@ -138,7 +139,8 @@ db:
 `
 	newContent := strings.TrimRight(contentStr, "\n") + "\n" + dbSection
 
-	if err := os.WriteFile(configPath, []byte(newContent), 0o644); err != nil {
+	cleanConfigPath := filepath.Clean(configPath)
+	if err := os.WriteFile(cleanConfigPath, []byte(newContent), 0o644); err != nil {
 		return fmt.Errorf("failed to write %s: %w", filepath.Base(configPath), err)
 	}
 
