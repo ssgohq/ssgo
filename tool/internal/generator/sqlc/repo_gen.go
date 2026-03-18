@@ -183,16 +183,8 @@ func (g *RepoGenerator) generateRepository(module, entityName string, queries []
 	buf.WriteString("}\n\n")
 
 	// Constructor
-	buf.WriteString(
-		fmt.Sprintf("// New%sRepository creates a new %s repository\n", entityName, lowerEntity),
-	)
-	buf.WriteString(
-		fmt.Sprintf(
-			"func New%sRepository(store *store.Store) %sRepository {\n",
-			entityName,
-			entityName,
-		),
-	)
+	fmt.Fprintf(&buf, "// New%sRepository creates a new %s repository\n", entityName, lowerEntity)
+	fmt.Fprintf(&buf, "func New%sRepository(store *store.Store) %sRepository {\n", entityName, entityName)
 	fmt.Fprintf(&buf, "\treturn &%sRepository{\n", lowerEntity)
 	buf.WriteString("\t\tstore: store,\n")
 	buf.WriteString("\t}\n")
@@ -257,16 +249,12 @@ func (g *RepoGenerator) generateMethod(lowerEntity, entityName string, q common.
 	}
 
 	// Method signature
-	buf.WriteString(
-		fmt.Sprintf("func (r *%sRepository) %s(%s) %s {\n", lowerEntity, q.Name, params, returns),
-	)
+	fmt.Fprintf(&buf, "func (r *%sRepository) %s(%s) %s {\n", lowerEntity, q.Name, params, returns)
 
 	// Add tracing if enabled
 	if g.opts.WithTrace {
 		tracerName := fmt.Sprintf("%sRepository", lowerEntity)
-		buf.WriteString(
-			fmt.Sprintf("\tctx, span := otel.Tracer(%q).Start(ctx, %q)\n", tracerName, q.Name),
-		)
+		fmt.Fprintf(&buf, "\tctx, span := otel.Tracer(%q).Start(ctx, %q)\n", tracerName, q.Name)
 		buf.WriteString("\tdefer span.End()\n\n")
 	}
 

@@ -82,7 +82,7 @@ type DBConfig struct {
 		formatted = []byte(newContent)
 	}
 
-	if err := os.WriteFile(configPath, formatted, 0o644); err != nil { //nolint:gosec // configPath is constructed from trusted outputDir + known subpath
+	if err := safeWriteFile(u.outputDir, configPath, formatted, 0o644); err != nil {
 		return fmt.Errorf("failed to write config.go: %w", err)
 	}
 
@@ -138,7 +138,7 @@ db:
 `
 	newContent := strings.TrimRight(contentStr, "\n") + "\n" + dbSection
 
-	if err := os.WriteFile(configPath, []byte(newContent), 0o644); err != nil { //nolint:gosec // configPath is selected from a fixed set of known paths
+	if err := safeWriteFile(u.outputDir, configPath, []byte(newContent), 0o644); err != nil {
 		return fmt.Errorf("failed to write %s: %w", filepath.Base(configPath), err)
 	}
 
