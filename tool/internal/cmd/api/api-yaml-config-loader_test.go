@@ -140,7 +140,11 @@ func TestApiConfig_IsEmpty(t *testing.T) {
 func TestResolveApiConfig_Defaults(t *testing.T) {
 	// Create a temp dir with a go.mod so module auto-detect works
 	dir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module github.com/org/test\n\ngo 1.21\n"), 0o644); err != nil {
+	if err := os.WriteFile(
+		filepath.Join(dir, "go.mod"),
+		[]byte("module github.com/org/test\n\ngo 1.21\n"),
+		0o644,
+	); err != nil {
 		t.Fatal(err)
 	}
 

@@ -102,7 +102,13 @@ func runGenFromConfig(ctx *cmdctx.Context, cfg *ApiConfig, serviceFilter string)
 		}
 
 		log.Info("--- Generating API: %s ---", svc.File)
-		if err := executeGen(resolved.ApiFile, resolved.OutputDir, resolved.Module, resolved.Port, resolved.WithLogic); err != nil {
+		if err := executeGen(
+			resolved.ApiFile,
+			resolved.OutputDir,
+			resolved.Module,
+			resolved.Port,
+			resolved.WithLogic,
+		); err != nil {
 			return fmt.Errorf("api %s: %w", svc.File, err)
 		}
 	}
