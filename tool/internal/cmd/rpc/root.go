@@ -81,7 +81,7 @@ Examples:
 
   # Zero-flag mode (reads .ss.yaml rpc section):
   ss rpc model
-  ss rpc gen 1s-auth-svc
+  ss rpc gen auth-svc
   ss rpc sync
 
 Flags for 'gen':

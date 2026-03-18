@@ -13,12 +13,12 @@ import (
 //
 //	rpc:
 //	  proto_module:
-//	    dir: ght-prutal
+//	    dir: shared-proto
 //	    gen_path: kitex_gen
 //	  services:
-//	    - dir: 1s-auth-svc
+//	    - dir: auth-svc
 //	      protos:
-//	        - proto/1sauth/v1/auth.proto
+//	        - proto/auth/v1/auth.proto
 //	      options:
 //	        with_trace: true
 //	        with_redis: true

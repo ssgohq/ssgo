@@ -227,18 +227,18 @@ Auto-detection:
 .ss.yaml rpc section (zero-flag mode):
 	 rpc:
 	   proto_module:
-	     dir: ght-prutal
+	     dir: shared-proto
 	     gen_path: kitex_gen
 	   services:
-	     - dir: 1s-auth-svc
+	     - dir: auth-svc
 	       protos:
-	         - proto/1sauth/v1/auth.proto
+	         - proto/auth/v1/auth.proto
 	       options:
 	         with_trace: true
 
 Examples:
 	 # Minimal (auto-detect service, module, and --use):
-	 ss rpc gen -p proto/auth.proto -o my-auth-svc
+	 ss rpc gen -p proto/auth.proto -o my-svc
 
 	 # Explicit (override auto-detection):
 	 ss rpc gen -p proto/auth.proto --service AuthService -m github.com/org/auth-rpc
@@ -247,6 +247,6 @@ Examples:
 	 ss rpc gen
 
 	 # Zero-flag (specific service from .ss.yaml):
-	 ss rpc gen 1s-auth-svc`)
+	 ss rpc gen auth-svc`)
 	return nil
 }

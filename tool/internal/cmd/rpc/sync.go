@@ -184,12 +184,12 @@ Options (explicit mode):
 .ss.yaml rpc section (zero-flag mode):
 	 rpc:
 	   proto_module:
-	     dir: ght-prutal
+	     dir: shared-proto
 	     gen_path: kitex_gen
 	   services:
-	     - dir: 1s-auth-svc
+	     - dir: auth-svc
 	       protos:
-	         - proto/1sauth/v1/auth.proto
+	         - proto/auth/v1/auth.proto
 	       options:
 	         with_trace: true
 
@@ -198,9 +198,9 @@ Examples:
 	 ss rpc sync
 
 	 # Sync specific service:
-	 ss rpc sync 1s-auth-svc
+	 ss rpc sync auth-svc
 
 	 # Explicit (without .ss.yaml):
-	 ss rpc sync -p proto/auth.proto --model-dir ght-prutal -o 1s-auth-svc --with-trace`)
+	 ss rpc sync -p proto/auth.proto --model-dir shared-proto -o auth-svc --with-trace`)
 	return nil
 }
