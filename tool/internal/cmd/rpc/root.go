@@ -15,13 +15,19 @@ func Execute(ctx *cmdctx.Context) error {
 	}
 
 	subCmd := ctx.Args[0]
+	// Create a sub-context with the subcommand name removed so that
+	// subcommands see only their own positional arguments (e.g., service name).
+	subCtx := cloneCtxWithArgs(ctx, ctx.Args[1:])
+
 	switch subCmd {
 	case "new":
-		return runNew(ctx)
+		return runNew(subCtx)
 	case "gen":
-		return runGen(ctx)
+		return runGen(subCtx)
 	case "model":
-		return runModel(ctx)
+		return runModel(subCtx)
+	case "sync":
+		return runSync(subCtx)
 	case "help", "-h", "--help":
 		return printHelp()
 	default:
@@ -36,7 +42,7 @@ func Complete(ctx *cmdctx.Context) {
 
 	// If no args, suggest subcommands
 	if len(args) == 0 || (len(args) == 1 && toComplete != "") {
-		completions := []string{"new", "gen", "model"}
+		completions := []string{"new", "gen", "model", "sync"}
 		filtered := log.FilterCompletions(completions, toComplete)
 		log.PrintCompletions(filtered)
 		return
@@ -49,6 +55,8 @@ func Complete(ctx *cmdctx.Context) {
 		completeGen(ctx, toComplete)
 	case "model":
 		completeModel(ctx, toComplete)
+	case "sync":
+		completeSync(ctx, toComplete)
 	case "new":
 		// No specific completions for new
 	}
@@ -62,29 +70,42 @@ Usage:
 
 Commands:
   new <name>   Create a new .proto file template
-  gen          Generate Kitex code from .proto file
-  model        Generate shared model (kitex_gen) only
+  gen          Generate Kitex code from .proto file (or from .ss.yaml rpc section)
+  model        Generate shared model (kitex_gen) only (or from .ss.yaml rpc section)
+  sync         Generate model + service in one shot (model → tidy → gen → tidy)
 
 Examples:
   ss rpc new user
   ss rpc gen --proto idl/user.proto --service UserService -m github.com/org/user-rpc
   ss rpc model --proto idl/user.proto -m github.com/org/common-pb -o common-pb
 
+  # Zero-flag mode (reads .ss.yaml rpc section):
+  ss rpc model
+  ss rpc gen 1s-auth-svc
+  ss rpc sync
+
 Flags for 'gen':
-  --proto, -p <file>    Path to .proto file (required)
-  --service <name>      Service name e.g. UserService (required)
-  --module, -m <name>   Go module name (required)
+  --proto, -p <file>    Path to .proto file (auto from .ss.yaml when omitted)
+  --service <name>      Service name (auto-detected from proto)
+  --module, -m <name>   Go module name (auto from go.mod)
   --dir, -o <path>      Output directory (default: .)
-  --use <import>        Import path for shared types
+  --use <import>        Import path for shared types (auto from go_package)
   --gen-path <name>     Generated code path (default: kitex_gen)
   --with-trace          Enable OpenTelemetry
   --with-redis          Add Redis config
 
 Flags for 'model':
-  --proto, -p <file>    Path to .proto file (required)
-  --module, -m <name>   Go module name (required)
-  --dir, -o <path>      Output directory (required)
-  --gen-path <name>     Generated code path (default: kitex_gen)`)
+  --proto, -p <file>    Path to .proto file (auto from .ss.yaml when omitted)
+  --module, -m <name>   Go module name (auto from go.mod)
+  --dir, -o <path>      Output directory
+  --gen-path <name>     Generated code path (default: kitex_gen)
+
+Flags for 'sync':
+  -p, --proto <file>    Path to .proto file (auto from .ss.yaml when omitted)
+  --model-dir <dir>     Output dir for shared model generation
+  --dir, -o <path>      Service output directory
+  --with-trace          Enable OpenTelemetry
+  --with-redis          Add Redis config`)
 	return nil
 }
 
@@ -109,6 +130,22 @@ func completeModel(ctx *cmdctx.Context, toComplete string) {
 		"--module", "-m",
 		"--dir", "-o",
 		"--gen-path",
+	}
+	filtered := log.FilterCompletions(flags, toComplete)
+	log.PrintCompletions(filtered)
+}
+
+func completeSync(ctx *cmdctx.Context, toComplete string) {
+	flags := []string{
+		"--proto", "-p",
+		"--model-dir",
+		"--module", "-m",
+		"--dir", "-o",
+		"--service",
+		"--use",
+		"--gen-path",
+		"--with-trace",
+		"--with-redis",
 	}
 	filtered := log.FilterCompletions(flags, toComplete)
 	log.PrintCompletions(filtered)

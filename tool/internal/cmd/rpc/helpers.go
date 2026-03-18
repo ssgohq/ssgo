@@ -10,6 +10,16 @@ import (
 	gen "github.com/ssgohq/ssgo/tool/internal/generator/kitex"
 )
 
+// cloneCtxWithArgs returns a shallow copy of ctx with Args replaced.
+func cloneCtxWithArgs(ctx *cmdctx.Context, args []string) *cmdctx.Context {
+	return &cmdctx.Context{
+		Args:       args,
+		Flags:      ctx.Flags,
+		WorkingDir: ctx.WorkingDir,
+		Debug:      ctx.Debug,
+	}
+}
+
 // resolveFlag returns the value of the long-form flag, falling back to the
 // short-form flag when the long-form flag is absent.
 func resolveFlag(ctx *cmdctx.Context, long, short string) string {
