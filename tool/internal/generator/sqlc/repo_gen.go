@@ -170,15 +170,15 @@ func (g *RepoGenerator) generateRepository(module, entityName string, queries []
 		entityName,
 		lowerEntity,
 	)
-	buf.WriteString(fmt.Sprintf("type %sRepository interface {\n", entityName))
+	fmt.Fprintf(&buf, "type %sRepository interface {\n", entityName)
 	for _, q := range queries {
 		sig := g.buildMethodSignature(q)
-		buf.WriteString(fmt.Sprintf("\t%s\n", sig))
+		fmt.Fprintf(&buf, "\t%s\n", sig)
 	}
 	buf.WriteString("}\n\n")
 
 	// Struct
-	buf.WriteString(fmt.Sprintf("type %sRepository struct {\n", lowerEntity))
+	fmt.Fprintf(&buf, "type %sRepository struct {\n", lowerEntity)
 	buf.WriteString("\tstore *store.Store\n")
 	buf.WriteString("}\n\n")
 
@@ -193,7 +193,7 @@ func (g *RepoGenerator) generateRepository(module, entityName string, queries []
 			entityName,
 		),
 	)
-	buf.WriteString(fmt.Sprintf("\treturn &%sRepository{\n", lowerEntity))
+	fmt.Fprintf(&buf, "\treturn &%sRepository{\n", lowerEntity)
 	buf.WriteString("\t\tstore: store,\n")
 	buf.WriteString("\t}\n")
 	buf.WriteString("}\n\n")
@@ -279,7 +279,7 @@ func (g *RepoGenerator) generateMethod(lowerEntity, entityName string, q common.
 	argsStr := strings.Join(callArgs, ", ")
 
 	// Call the SQLC query
-	buf.WriteString(fmt.Sprintf("\treturn r.store.Queries().%s(%s)\n", q.Name, argsStr))
+	fmt.Fprintf(&buf, "\treturn r.store.Queries().%s(%s)\n", q.Name, argsStr)
 
 	buf.WriteString("}\n")
 	return buf.String()

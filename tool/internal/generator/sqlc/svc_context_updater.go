@@ -550,8 +550,7 @@ func (u *SvcContextUpdater) UpdateMainGo() error {
 		formatted = []byte(contentStr)
 	}
 
-	cleanMainPath := filepath.Clean(mainPath)
-	if err := os.WriteFile(cleanMainPath, formatted, 0o644); err != nil {
+	if err := os.WriteFile(mainPath, formatted, 0o644); err != nil { //nolint:gosec // mainPath is constructed from trusted outputDir + known subpath
 		return fmt.Errorf("failed to write main.go: %w", err)
 	}
 

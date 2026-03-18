@@ -122,7 +122,7 @@ func updateRunSection(configPath string, runConfig map[string]interface{}) error
 		content = strings.TrimSuffix(content, "\n") + "\n\n" + string(runYAML)
 	}
 
-	if err := os.WriteFile(configPath, []byte(content), 0o644); err != nil {
+	if err := os.WriteFile(configPath, []byte(content), 0o644); err != nil { //nolint:gosec // configPath is constructed from trusted workDir + known filename
 		return fmt.Errorf("failed to write .ss.yaml: %w", err)
 	}
 
