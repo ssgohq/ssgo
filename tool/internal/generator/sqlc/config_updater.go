@@ -133,7 +133,18 @@ func (u *ConfigUpdater) updateSingleConfigYaml(configPath string) error {
 	contentStr := string(content)
 
 	// Check if db section already exists (not commented)
-	if strings.Contains(contentStr, "\ndb:") {
+	hasDBSection := false
+	for _, line := range strings.Split(contentStr, "\n") {
+		t := strings.TrimSpace(line)
+		if strings.HasPrefix(t, "#") {
+			continue
+		}
+		if strings.HasPrefix(t, "db:") {
+			hasDBSection = true
+			break
+		}
+	}
+	if hasDBSection {
 		u.logVerbose("  db section already exists in %s\n", filepath.Base(configPath))
 		return nil
 	}

@@ -79,7 +79,9 @@ func runDocFromConfig(ctx *cmdctx.Context, cfg *ApiConfig, serviceFilter string)
 
 		// Use "docs" as output dir for documentation by default
 		outputDir := resolved.OutputDir
-		if svc.Dir == "" {
+		// If the user did not pass a dir override, keep old zero-config
+		// behavior of defaulting API docs to <workingDir>/docs.
+		if svc.Dir == "" && ctx.GetFlag("dir") == "" && ctx.GetFlag("o") == "" {
 			outputDir = filepath.Join(ctx.WorkingDir, "docs")
 		}
 

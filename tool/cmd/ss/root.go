@@ -108,12 +108,14 @@ Commands:
   gen     Generate Hertz code from .api file
   logic   Generate only logic files
   doc     Generate OpenAPI documentation
+  sync    Generate api and run tidy in one command
 
 Examples:
   ss api new user
   ss api gen --api api/user.api -m github.com/org/user-api
   ss api logic --api api/user.api -m github.com/org/user-api
-  ss api doc --api api/user.api --format yaml`,
+  ss api doc --api api/user.api --format yaml
+  ss api sync --api api/user.api`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ctx := createContext(args)
 		return apicmd.Execute(ctx)
@@ -131,11 +133,13 @@ Commands:
   new <name>   Create a new .proto file template
   gen          Generate Kitex code from .proto file
   model        Generate shared model (kitex_gen) only
+  sync         Generate model + service together and run tidy
 
 Examples:
   ss rpc new user
   ss rpc gen --proto idl/user.proto --service UserService -m github.com/org/user-rpc
-  ss rpc model --proto idl/user.proto -m github.com/org/common-pb -o common-pb`,
+  ss rpc model --proto idl/user.proto -m github.com/org/common-pb -o common-pb
+  ss rpc sync --proto idl/user.proto -m github.com/org/user-rpc`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ctx := createContext(args)
 		return rpccmd.Execute(ctx)
