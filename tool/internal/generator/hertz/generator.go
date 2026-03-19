@@ -65,17 +65,19 @@ type APIOptions struct {
 // APIGenerator generates Hertz API code with ServiceContext and RPC integration.
 // It implements the gen.Generator interface for use with SDK's Runner pattern.
 type APIGenerator struct {
-	spec *spec.ServiceSpec
-	opts APIOptions
-	data *APIData
+	spec   *spec.ServiceSpec
+	opts   APIOptions
+	data   *APIData
+	layout gen.ServiceLayout
 }
 
 // NewAPIGenerator creates a new APIGenerator.
 func NewAPIGenerator(apiSpec *spec.ServiceSpec, opts APIOptions) *APIGenerator {
 	return &APIGenerator{
-		spec: apiSpec,
-		opts: opts,
-		data: BuildAPIData(apiSpec, opts),
+		spec:   apiSpec,
+		opts:   opts,
+		data:   BuildAPIData(apiSpec, opts),
+		layout: gen.DetectLayout(opts.Output),
 	}
 }
 
@@ -189,7 +191,7 @@ func (g *APIGenerator) stepDirectories(_ context.Context, r *gen.Runner) error {
 
 func (g *APIGenerator) stepTypes(_ context.Context, r *gen.Runner) error {
 	return r.Tpl.RenderToFile(r.Files, "api_types.tpl",
-		filepath.Join(r.Opt.OutputDir, "internal/types/types.go"),
+		filepath.Join(r.Opt.OutputDir, "internal/api/types/types.go"),
 		map[string]any{
 			"Module": g.data.Module,
 			"Types":  g.data.Types,
@@ -197,8 +199,9 @@ func (g *APIGenerator) stepTypes(_ context.Context, r *gen.Runner) error {
 }
 
 func (g *APIGenerator) stepConfig(_ context.Context, r *gen.Runner) error {
-	return r.Tpl.RenderToFile(r.Files, "api_config.tpl",
-		filepath.Join(r.Opt.OutputDir, "internal/config/config.go"),
+	configPath := filepath.Join(r.Opt.OutputDir, "internal/config/config.go")
+	skipped, err := r.Tpl.RenderSkipExisting(r.Files, "api_config.tpl",
+		configPath,
 		map[string]any{
 			"Module":        g.data.Module,
 			"HasRPCClients": g.data.HasRPCClients,
@@ -207,22 +210,37 @@ func (g *APIGenerator) stepConfig(_ context.Context, r *gen.Runner) error {
 			"WithDB":        g.data.WithDB,
 			"WithRedis":     g.data.WithRedis,
 		})
+	if err != nil {
+		return err
+	}
+	if skipped {
+		fmt.Printf("    [skip] internal/config/config.go (shared, already exists)\n")
+	}
+	return nil
 }
 
 func (g *APIGenerator) stepServiceContext(_ context.Context, r *gen.Runner) error {
-	return r.Tpl.RenderToFile(r.Files, "api_svc.tpl",
-		filepath.Join(r.Opt.OutputDir, "internal/svc/service_context.go"),
+	svcPath := filepath.Join(r.Opt.OutputDir, "internal/svc/service_context.go")
+	skipped, err := r.Tpl.RenderSkipExisting(r.Files, "api_svc.tpl",
+		svcPath,
 		map[string]any{
 			"Module":        g.data.Module,
 			"TypesModule":   g.data.TypesModule,
 			"HasRPCClients": g.data.HasRPCClients,
 			"RPCClients":    g.data.RPCClients,
 		})
+	if err != nil {
+		return err
+	}
+	if skipped {
+		fmt.Printf("    [skip] internal/svc/service_context.go (shared, already exists)\n")
+	}
+	return nil
 }
 
 func (g *APIGenerator) stepMiddleware(_ context.Context, r *gen.Runner) error {
 	return r.Tpl.RenderToFile(r.Files, "api_middleware.tpl",
-		filepath.Join(r.Opt.OutputDir, "internal/middleware/middleware.go"),
+		filepath.Join(r.Opt.OutputDir, "internal/api/middleware/middleware.go"),
 		map[string]any{
 			"Module":     g.data.Module,
 			"Middleware": g.data.Middleware,
@@ -231,7 +249,7 @@ func (g *APIGenerator) stepMiddleware(_ context.Context, r *gen.Runner) error {
 
 func (g *APIGenerator) stepHTTPUtil(_ context.Context, r *gen.Runner) error {
 	return r.Tpl.RenderToFile(r.Files, "api_httputil_errors.tpl",
-		filepath.Join(r.Opt.OutputDir, "internal/pkg/httputil/errors.go"),
+		filepath.Join(r.Opt.OutputDir, "internal/api/pkg/httputil/errors.go"),
 		map[string]any{
 			"Module": g.data.Module,
 		})
@@ -272,9 +290,9 @@ func (g *APIGenerator) stepHandlers(_ context.Context, r *gen.Runner) error {
 			fileName := naming.FileNameFromHandler(route.Handler) + "_handler.go"
 			var path string
 			if group.Name != "" {
-				path = filepath.Join(r.Opt.OutputDir, "internal", "handler", naming.ToSnakeCase(group.Name), fileName)
+				path = filepath.Join(r.Opt.OutputDir, "internal", "api", "handler", naming.ToSnakeCase(group.Name), fileName)
 			} else {
-				path = filepath.Join(r.Opt.OutputDir, "internal", "handler", fileName)
+				path = filepath.Join(r.Opt.OutputDir, "internal", "api", "handler", fileName)
 			}
 
 			if err := r.Tpl.RenderToFile(r.Files, "api_handler.tpl", path, handlerData); err != nil {
@@ -319,9 +337,9 @@ func (g *APIGenerator) stepLogic(_ context.Context, r *gen.Runner) error {
 			fileName := naming.FileNameFromHandler(route.Handler) + "_logic.go"
 			var path string
 			if group.Name != "" {
-				path = filepath.Join(r.Opt.OutputDir, "internal", "logic", naming.ToSnakeCase(group.Name), fileName)
+				path = filepath.Join(r.Opt.OutputDir, "internal", "api", "logic", naming.ToSnakeCase(group.Name), fileName)
 			} else {
-				path = filepath.Join(r.Opt.OutputDir, "internal", "logic", fileName)
+				path = filepath.Join(r.Opt.OutputDir, "internal", "api", "logic", fileName)
 			}
 
 			skipped, err := r.Tpl.RenderSkipExisting(r.Files, "api_logic.tpl", path, logicData)
@@ -339,7 +357,7 @@ func (g *APIGenerator) stepLogic(_ context.Context, r *gen.Runner) error {
 func (g *APIGenerator) stepRoutes(_ context.Context, r *gen.Runner) error {
 	// Generate routes_gen.go (always overwrite)
 	if err := r.Tpl.RenderToFile(r.Files, "api_routes_gen.tpl",
-		filepath.Join(r.Opt.OutputDir, "internal/handler/routes_gen.go"),
+		filepath.Join(r.Opt.OutputDir, "internal/api/handler/routes_gen.go"),
 		map[string]any{
 			"Module":  g.data.Module,
 			"Groups":  g.data.Groups,
@@ -350,7 +368,7 @@ func (g *APIGenerator) stepRoutes(_ context.Context, r *gen.Runner) error {
 
 	// Generate routes.go (skip if exists - user editable)
 	_, err := r.Tpl.RenderSkipExisting(r.Files, "api_routes.tpl",
-		filepath.Join(r.Opt.OutputDir, "internal/handler/routes.go"),
+		filepath.Join(r.Opt.OutputDir, "internal/api/handler/routes.go"),
 		map[string]any{
 			"Module": g.data.Module,
 		})
@@ -359,7 +377,7 @@ func (g *APIGenerator) stepRoutes(_ context.Context, r *gen.Runner) error {
 
 func (g *APIGenerator) stepMain(_ context.Context, r *gen.Runner) error {
 	return r.Tpl.RenderToFile(r.Files, "api_main.tpl",
-		filepath.Join(r.Opt.OutputDir, "cmd/main.go"),
+		filepath.Join(r.Opt.OutputDir, "cmd/api/main.go"),
 		map[string]any{
 			"Module": g.data.Module,
 		})
@@ -406,14 +424,14 @@ func (g *APIGenerator) stepGoMod(_ context.Context, r *gen.Runner) error {
 // buildDirectories returns the list of directories to create.
 func (g *APIGenerator) buildDirectories() []string {
 	dirs := []string{
-		"cmd",
+		"cmd/api",
 		"internal/config",
-		"internal/handler",
-		"internal/logic",
-		"internal/middleware",
-		"internal/pkg/httputil",
+		"internal/api/handler",
+		"internal/api/logic",
+		"internal/api/middleware",
+		"internal/api/pkg/httputil",
 		"internal/svc",
-		"internal/types",
+		"internal/api/types",
 		"etc",
 	}
 
@@ -422,8 +440,8 @@ func (g *APIGenerator) buildDirectories() []string {
 		if group.Annotation != nil && group.Annotation.Group != "" {
 			groupName := naming.ToSnakeCase(group.Annotation.Group)
 			dirs = append(dirs,
-				filepath.Join("internal", "handler", groupName),
-				filepath.Join("internal", "logic", groupName),
+				filepath.Join("internal", "api", "handler", groupName),
+				filepath.Join("internal", "api", "logic", groupName),
 			)
 		}
 	}
@@ -439,30 +457,33 @@ func (g *APIGenerator) printGeneratedStructure() {
 	fmt.Printf("Generated structure:\n")
 	fmt.Printf("  %s/\n", g.opts.Output)
 	fmt.Printf("  ├── cmd/\n")
-	fmt.Printf("  │   └── main.go\n")
+	fmt.Printf("  │   └── api/\n")
+	fmt.Printf("  │       └── main.go\n")
 	fmt.Printf("  ├── internal/\n")
-	fmt.Printf("  │   ├── config/\n")
+	fmt.Printf("  │   ├── config/      (shared)\n")
 	fmt.Printf("  │   │   └── config.go\n")
-	fmt.Printf("  │   ├── handler/\n")
-	for _, group := range g.spec.Groups {
-		if group.Annotation != nil && group.Annotation.Group != "" {
-			groupName := naming.ToSnakeCase(group.Annotation.Group)
-			fmt.Printf("  │   │   └── %s/\n", groupName)
-		}
-	}
-	fmt.Printf("  │   ├── logic/\n")
-	for _, group := range g.spec.Groups {
-		if group.Annotation != nil && group.Annotation.Group != "" {
-			groupName := naming.ToSnakeCase(group.Annotation.Group)
-			fmt.Printf("  │   │   └── %s/\n", groupName)
-		}
-	}
-	fmt.Printf("  │   ├── middleware/\n")
-	fmt.Printf("  │   │   └── middleware.go\n")
-	fmt.Printf("  │   ├── svc/\n")
+	fmt.Printf("  │   ├── svc/         (shared)\n")
 	fmt.Printf("  │   │   └── service_context.go\n")
-	fmt.Printf("  │   └── types/\n")
-	fmt.Printf("  │       └── types.go\n")
+	fmt.Printf("  │   └── api/\n")
+	fmt.Printf("  │       ├── handler/\n")
+	for _, group := range g.spec.Groups {
+		if group.Annotation != nil && group.Annotation.Group != "" {
+			groupName := naming.ToSnakeCase(group.Annotation.Group)
+			fmt.Printf("  │       │   └── %s/\n", groupName)
+		}
+	}
+	fmt.Printf("  │       ├── logic/\n")
+	for _, group := range g.spec.Groups {
+		if group.Annotation != nil && group.Annotation.Group != "" {
+			groupName := naming.ToSnakeCase(group.Annotation.Group)
+			fmt.Printf("  │       │   └── %s/\n", groupName)
+		}
+	}
+	fmt.Printf("  │       ├── middleware/\n")
+	fmt.Printf("  │       │   └── middleware.go\n")
+	fmt.Printf("  │       ├── pkg/httputil/\n")
+	fmt.Printf("  │       └── types/\n")
+	fmt.Printf("  │           └── types.go\n")
 	fmt.Printf("  ├── etc/\n")
 	fmt.Printf("  │   └── api.yaml\n")
 	fmt.Printf("  └── go.mod\n")

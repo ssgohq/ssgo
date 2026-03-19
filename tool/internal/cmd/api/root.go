@@ -24,6 +24,8 @@ func Execute(ctx *cmdctx.Context) error {
 		return runLogic(ctx)
 	case "doc":
 		return runDoc(ctx)
+	case "sync":
+		return runSync(ctx)
 	case "-h", "--help", "help":
 		return printHelp()
 	default:
@@ -38,6 +40,7 @@ func Complete(ctx *cmdctx.Context) {
 		fmt.Println("gen")
 		fmt.Println("logic")
 		fmt.Println("doc")
+		fmt.Println("sync")
 		return
 	}
 
@@ -45,7 +48,7 @@ func Complete(ctx *cmdctx.Context) {
 	switch cmd {
 	case "new":
 		// Complete service names (no completion needed)
-	case "gen", "logic":
+	case "gen", "logic", "sync":
 		completeFlags(ctx, []string{"-a", "--api", "-o", "--dir", "-m", "--module"})
 	case "doc":
 		completeFlags(ctx, []string{"-a", "--api", "-o", "--dir", "--format"})
@@ -68,6 +71,7 @@ Usage:
 Commands:
   new     Create a new .api file template
   gen     Generate Hertz code from .api file
+  sync    Generate code + run go mod tidy (gen → tidy)
   logic   Generate only logic files
   doc     Generate OpenAPI documentation
 
@@ -89,6 +93,7 @@ Examples:
 
   # Zero-flag mode (reads .ss.yaml):
   ss api gen
+  ss api sync
   ss api doc
   ss api logic`)
 	return nil

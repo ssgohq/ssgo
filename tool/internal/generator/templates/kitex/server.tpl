@@ -5,7 +5,7 @@ package server
 import (
 	"context"
 
-	"{{.Module}}/internal/logic"
+	"{{.Module}}/internal/rpc/logic"
 	"{{.Module}}/internal/svc"
 	{{.ServiceLower}} "{{.TypesImport}}"
 )

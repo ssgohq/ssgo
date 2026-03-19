@@ -15,12 +15,12 @@ import (
 	_ "github.com/cloudwego/kitex/pkg/remote/codec/protobuf/encoding/gzip" // Register gzip compressor for gRPC clients
 
 	"{{.Module}}/internal/config"
-	svrImpl "{{.Module}}/internal/server"
+	svrImpl "{{.Module}}/internal/rpc/server"
 	"{{.Module}}/internal/svc"
 	"{{.ServiceImport}}"
 )
 
-var configFile = flag.String("c", "etc/config.yaml", "config file")
+var configFile = flag.String("c", "etc/rpc.yaml", "config file")
 
 func main() {
 	flag.Parse()

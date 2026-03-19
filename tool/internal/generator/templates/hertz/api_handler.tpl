@@ -9,10 +9,10 @@ import (
 {{end}}
 	"github.com/cloudwego/hertz/pkg/app"
 	"github.com/cloudwego/hertz/pkg/protocol/consts"
-	"{{.Module}}/internal/logic/{{.Group}}"
-	"{{.Module}}/internal/pkg/httputil"
+	"{{.Module}}/internal/api/logic/{{.Group}}"
+	"{{.Module}}/internal/api/pkg/httputil"
 	"{{.Module}}/internal/svc"
-	"{{.Module}}/internal/types"
+	"{{.Module}}/internal/api/types"
 )
 
 // {{.HandlerName}} handles {{.Method}} {{.Path}}

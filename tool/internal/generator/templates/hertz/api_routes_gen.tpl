@@ -4,7 +4,7 @@ package handler
 
 import (
 	"github.com/cloudwego/hertz/pkg/app/server"
-	"{{.Module}}/internal/middleware"
+	"{{.Module}}/internal/api/middleware"
 	"{{.Module}}/internal/svc"
 {{range .Imports}}	"{{.}}"
 {{end}})

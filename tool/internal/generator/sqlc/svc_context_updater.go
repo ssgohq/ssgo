@@ -484,26 +484,40 @@ func (u *SvcContextUpdater) updateSvcVarPattern(content string, funcStart, funcE
 	return content
 }
 
-// UpdateMainGo updates cmd/main.go to handle error from NewServiceContext
+// UpdateMainGo updates main.go files to handle error from NewServiceContext.
+// It searches all common locations including namespaced cmd/{api,rpc}/main.go paths.
 func (u *SvcContextUpdater) UpdateMainGo() error {
-	// Try common main.go locations
+	// Try common main.go locations — includes namespaced layout paths
 	mainPaths := []string{
+		filepath.Join(u.outputDir, "cmd", "api", "main.go"),
+		filepath.Join(u.outputDir, "cmd", "rpc", "main.go"),
 		filepath.Join(u.outputDir, "cmd", "main.go"),
 		filepath.Join(u.outputDir, "main.go"),
 	}
 
-	var mainPath string
+	var found []string
 	for _, p := range mainPaths {
 		if _, err := os.Stat(p); err == nil {
-			mainPath = p
-			break
+			found = append(found, p)
 		}
 	}
 
-	if mainPath == "" {
+	if len(found) == 0 {
 		u.logVerbose("  main.go not found, skipping update\n")
 		return nil
 	}
+
+	for _, mainPath := range found {
+		if err := u.updateSingleMainGo(mainPath); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// updateSingleMainGo updates one main.go file to handle NewServiceContext error.
+func (u *SvcContextUpdater) updateSingleMainGo(mainPath string) error {
 
 	content, err := os.ReadFile(mainPath)
 	if err != nil {

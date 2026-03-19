@@ -338,7 +338,7 @@ func BuildAPIData(apiSpec *spec.ServiceSpec, opts APIOptions) *APIData {
 
 			// Add import
 			if groupName != "" {
-				importPath := opts.Module + "/internal/handler/" + naming.ToSnakeCase(groupName)
+				importPath := opts.Module + "/internal/api/handler/" + naming.ToSnakeCase(groupName)
 				imports[importPath] = true
 			}
 		}

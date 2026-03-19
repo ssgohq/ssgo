@@ -96,10 +96,10 @@ func (s *Scaffold) Generate() error {
 
 	// Create directories
 	dirs := []string{
-		"cmd",
+		"cmd/rpc",
 		"internal/config",
-		"internal/logic",
-		"internal/server",
+		"internal/rpc/logic",
+		"internal/rpc/server",
 		"internal/svc",
 		"etc",
 	}
@@ -115,11 +115,11 @@ func (s *Scaffold) Generate() error {
 		output       string
 		skipIfExists bool
 	}{
-		{"svc.tpl", "internal/svc/service_context.go", true},
-		{"config.tpl", "internal/config/config.go", true},
-		{"config_yaml.tpl", "etc/config.yaml", true},
-		{"main.tpl", "cmd/main.go", true},
-		{"go_mod.tpl", "go.mod", false}, // Always regenerate to ensure correct dependencies
+		{"svc.tpl", "internal/svc/service_context.go", true},   // shared — skip if exists
+		{"config.tpl", "internal/config/config.go", true},        // shared — skip if exists
+		{"config_yaml.tpl", "etc/rpc.yaml", true},                // renamed from etc/config.yaml
+		{"main.tpl", "cmd/rpc/main.go", true},                    // moved from cmd/main.go
+		{"go_mod.tpl", "go.mod", false},                          // always regenerate
 	}
 
 	for _, f := range staticFiles {
@@ -142,7 +142,7 @@ func (s *Scaffold) Generate() error {
 	}
 
 	// Generate server file (always regenerate)
-	serverFile := fmt.Sprintf("internal/server/%s_server.go", naming.ToSnakeCase(data.ServiceLower))
+	serverFile := fmt.Sprintf("internal/rpc/server/%s_server.go", naming.ToSnakeCase(data.ServiceLower))
 	serverPath := filepath.Join(s.opts.OutputDir, serverFile)
 	if err := s.renderToFile("server.tpl", serverPath, data); err != nil {
 		return fmt.Errorf("failed to generate server: %w", err)
@@ -154,7 +154,7 @@ func (s *Scaffold) Generate() error {
 	// Generate logic files (one per method, skip if exists)
 	for _, method := range data.Methods {
 		methodData := data.WithMethod(&method)
-		logicFile := fmt.Sprintf("internal/logic/%s_logic.go", naming.ToSnakeCase(method.Name))
+		logicFile := fmt.Sprintf("internal/rpc/logic/%s_logic.go", naming.ToSnakeCase(method.Name))
 		logicPath := filepath.Join(s.opts.OutputDir, logicFile)
 
 		// Skip if exists

@@ -90,31 +90,43 @@ type DBConfig struct {
 	return nil
 }
 
-// UpdateConfigYaml updates etc/config.yaml or etc/api.yaml to include db section
+// UpdateConfigYaml updates all found config yamls (api.yaml, rpc.yaml, etc.) to include db section.
+// It searches all candidate paths and updates every file found, supporting hybrid services.
 func (u *ConfigUpdater) UpdateConfigYaml() error {
-	// Try common config file locations
-	configPaths := []string{
+	// Candidate config file locations — all are checked and updated if found
+	candidatePaths := []string{
 		filepath.Join(u.outputDir, "etc", "api.yaml"),
+		filepath.Join(u.outputDir, "etc", "rpc.yaml"),
 		filepath.Join(u.outputDir, "etc", "config.yaml"),
 		filepath.Join(u.outputDir, "etc", "dms.yaml"),
 	}
 
-	var configPath string
-	for _, p := range configPaths {
+	var found []string
+	for _, p := range candidatePaths {
 		if _, err := os.Stat(p); err == nil {
-			configPath = p
-			break
+			found = append(found, p)
 		}
 	}
 
-	if configPath == "" {
+	if len(found) == 0 {
 		u.logVerbose("  etc/*.yaml config file not found, skipping\n")
 		return nil
 	}
 
+	for _, configPath := range found {
+		if err := u.updateSingleConfigYaml(configPath); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// updateSingleConfigYaml updates one config yaml file to include db section if missing.
+func (u *ConfigUpdater) updateSingleConfigYaml(configPath string) error {
 	content, err := os.ReadFile(configPath)
 	if err != nil {
-		u.logVerbose("  %s not found, skipping\n", configPath)
+		u.logVerbose("  %s not readable, skipping\n", configPath)
 		return nil
 	}
 
@@ -122,7 +134,7 @@ func (u *ConfigUpdater) UpdateConfigYaml() error {
 
 	// Check if db section already exists (not commented)
 	if strings.Contains(contentStr, "\ndb:") {
-		u.logVerbose("  db section already exists in config.yaml\n")
+		u.logVerbose("  db section already exists in %s\n", filepath.Base(configPath))
 		return nil
 	}
 
@@ -142,7 +154,7 @@ db:
 		return fmt.Errorf("failed to write %s: %w", filepath.Base(configPath), err)
 	}
 
-	u.logVerbose("  Updated %s with db section\n", configPath)
+	u.logVerbose("  Updated %s with db section\n", filepath.Base(configPath))
 	return nil
 }
 
