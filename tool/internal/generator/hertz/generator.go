@@ -290,7 +290,14 @@ func (g *APIGenerator) stepHandlers(_ context.Context, r *gen.Runner) error {
 			fileName := naming.FileNameFromHandler(route.Handler) + "_handler.go"
 			var path string
 			if group.Name != "" {
-				path = filepath.Join(r.Opt.OutputDir, "internal", "api", "handler", naming.ToSnakeCase(group.Name), fileName)
+				path = filepath.Join(
+					r.Opt.OutputDir,
+					"internal",
+					"api",
+					"handler",
+					naming.ToSnakeCase(group.Name),
+					fileName,
+				)
 			} else {
 				path = filepath.Join(r.Opt.OutputDir, "internal", "api", "handler", fileName)
 			}
@@ -337,7 +344,14 @@ func (g *APIGenerator) stepLogic(_ context.Context, r *gen.Runner) error {
 			fileName := naming.FileNameFromHandler(route.Handler) + "_logic.go"
 			var path string
 			if group.Name != "" {
-				path = filepath.Join(r.Opt.OutputDir, "internal", "api", "logic", naming.ToSnakeCase(group.Name), fileName)
+				path = filepath.Join(
+					r.Opt.OutputDir,
+					"internal",
+					"api",
+					"logic",
+					naming.ToSnakeCase(group.Name),
+					fileName,
+				)
 			} else {
 				path = filepath.Join(r.Opt.OutputDir, "internal", "api", "logic", fileName)
 			}

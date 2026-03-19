@@ -115,11 +115,11 @@ func (s *Scaffold) Generate() error {
 		output       string
 		skipIfExists bool
 	}{
-		{"svc.tpl", "internal/svc/service_context.go", true},   // shared — skip if exists
-		{"config.tpl", "internal/config/config.go", true},        // shared — skip if exists
-		{"config_yaml.tpl", "etc/rpc.yaml", true},                // renamed from etc/config.yaml
-		{"main.tpl", "cmd/rpc/main.go", true},                    // moved from cmd/main.go
-		{"go_mod.tpl", "go.mod", false},                          // always regenerate
+		{"svc.tpl", "internal/svc/service_context.go", true}, // shared — skip if exists
+		{"config.tpl", "internal/config/config.go", true},    // shared — skip if exists
+		{"config_yaml.tpl", "etc/rpc.yaml", true},            // renamed from etc/config.yaml
+		{"main.tpl", "cmd/rpc/main.go", true},                // moved from cmd/main.go
+		{"go_mod.tpl", "go.mod", false},                      // always regenerate
 	}
 
 	for _, f := range staticFiles {

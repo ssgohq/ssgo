@@ -518,7 +518,6 @@ func (u *SvcContextUpdater) UpdateMainGo() error {
 
 // updateSingleMainGo updates one main.go file to handle NewServiceContext error.
 func (u *SvcContextUpdater) updateSingleMainGo(mainPath string) error {
-
 	content, err := os.ReadFile(mainPath)
 	if err != nil {
 		return fmt.Errorf("failed to read main.go: %w", err)
