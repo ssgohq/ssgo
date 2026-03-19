@@ -130,23 +130,23 @@ type (
 )
 service %s-api {
     @doc "List all items"
-    @handler List
+    @handler ListItems
     get /%s (ListReq) returns (ListResp)
 
     @doc "Get item by ID"
-    @handler Get
+    @handler GetItem
     get /%s/:id (GetReq) returns (Item)
 
     @doc "Create new item"
-    @handler Create
+    @handler CreateItem
     post /%s (CreateReq) returns (Item)
 
     @doc "Update item"
-    @handler Update
+    @handler UpdateItem
     put /%s/:id (UpdateReq) returns (Item)
 
     @doc "Delete item"
-    @handler Delete
+    @handler DeleteItem
     delete /%s/:id (DeleteReq)
 }
 `, serviceName, serviceName, serviceName, serviceName, serviceName, serviceName, serviceName, serviceName, serviceName)
